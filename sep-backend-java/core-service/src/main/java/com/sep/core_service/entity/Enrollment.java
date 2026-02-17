@@ -8,7 +8,6 @@ import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.GenericGenerator;
 
 import jakarta.persistence.CascadeType;
-import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.Id;
@@ -32,8 +31,9 @@ public class Enrollment {
     @JoinColumn(name = "student_id", nullable = false)
     private Student student;
 
-    @Column(name = "class_id", nullable = false)
-    private UUID classId; // Tạm thời để UUID của lớp học
+    @ManyToOne
+    @JoinColumn(name = "class_id", nullable = false)
+    private CourseClass courseClass;
 
     private String status = "ENROLLED"; // ENROLLED, DROPPED
 
@@ -41,6 +41,6 @@ public class Enrollment {
     private LocalDateTime enrolledAt;
 
     // Liên kết ngược lại để lấy danh sách điểm của lần đăng ký này
-    @OneToMany(mappedBy = "enrollmentId", cascade = CascadeType.ALL)
+    @OneToMany(mappedBy = "enrollment", cascade = CascadeType.ALL)
     private List<GradeScore> scores;
 }
