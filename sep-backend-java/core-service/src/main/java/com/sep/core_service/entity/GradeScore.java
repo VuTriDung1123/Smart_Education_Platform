@@ -23,10 +23,9 @@ public class GradeScore {
     @GenericGenerator(name = "UUID", strategy = "org.hibernate.id.UUIDGenerator")
     private UUID id;
 
-    // Liên kết với bảng Enrollments (Sinh viên đăng ký lớp nào)
-    // Giả sử Dũng đã có Entity Enrollment, nếu chưa mình sẽ bổ sung sau
-    @Column(name = "enrollment_id")
-    private UUID enrollmentId;
+    @ManyToOne
+    @JoinColumn(name = "enrollment_id")
+    private Enrollment enrollment;
 
     // Liên kết với cột điểm nào (Chuyên cần hay Học kỳ)
     @ManyToOne
