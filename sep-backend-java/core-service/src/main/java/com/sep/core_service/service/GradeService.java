@@ -1,6 +1,10 @@
 package com.sep.core_service.service;
 
+import java.util.List;
+
 import org.springframework.stereotype.Service;
+
+import com.sep.core_service.entity.GradeScore;
 
 @Service
 public class GradeService {
@@ -30,4 +34,14 @@ public class GradeService {
         if (score10 >= 2.1) return "F+";
         return "F";
     }
+    // Thêm hàm này vào trong file GradeService.java đã tạo trước đó
+    public double calculateFinalScore(List<GradeScore> scores) {
+        double finalScore = 0.0;
+        for (GradeScore gs : scores) {
+            // Điểm * Trọng số (ví dụ: 9.0 * 0.3)
+            finalScore += gs.getScore() * gs.getComponent().getWeight();
+        }
+        return finalScore;
+    }
 }
+
