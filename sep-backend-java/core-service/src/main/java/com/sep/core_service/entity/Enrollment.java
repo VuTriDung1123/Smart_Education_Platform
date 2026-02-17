@@ -1,5 +1,6 @@
 package com.sep.core_service.entity;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -8,6 +9,7 @@ import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.GenericGenerator;
 
 import jakarta.persistence.CascadeType;
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.Id;
@@ -43,4 +45,7 @@ public class Enrollment {
     // Liên kết ngược lại để lấy danh sách điểm của lần đăng ký này
     @OneToMany(mappedBy = "enrollment", cascade = CascadeType.ALL)
     private List<GradeScore> scores;
+
+    @Column(name = "enrollment_date")
+    private LocalDate enrollmentDate;
 }
