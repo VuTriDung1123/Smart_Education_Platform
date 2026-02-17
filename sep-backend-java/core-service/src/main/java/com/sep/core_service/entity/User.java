@@ -17,6 +17,8 @@ import jakarta.persistence.ManyToMany;
 import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.Setter;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 @Entity
 @Table(name = "users")
@@ -39,8 +41,7 @@ public class User {
 
     private String fullName;
     
-    @Column(columnDefinition = "jsonb")
-    private String faceVector;
+    
 
     private String status = "ACTIVE";
 
@@ -55,4 +56,8 @@ public class User {
         inverseJoinColumns = @JoinColumn(name = "role_id")
     )
     private java.util.Set<Role> roles;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(columnDefinition = "jsonb")
+    private String faceVector;
 }
