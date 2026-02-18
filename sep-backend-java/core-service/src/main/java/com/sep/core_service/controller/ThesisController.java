@@ -16,7 +16,10 @@ import com.sep.core_service.repository.StudentRepository;
 import com.sep.core_service.repository.ThesisRegistrationRepository;
 import com.sep.core_service.repository.ThesisSubmissionRepository;
 import com.sep.core_service.repository.ThesisTopicRepository;
-
+import org.springframework.web.multipart.MultipartFile;
+import com.cloudinary.Cloudinary;
+import com.cloudinary.utils.ObjectUtils;
+import java.util.Map;
 @RestController
 @RequestMapping("/api/thesis")
 public class ThesisController {
@@ -25,7 +28,7 @@ public class ThesisController {
     @Autowired private ThesisRegistrationRepository registrationRepository;
     @Autowired private ThesisSubmissionRepository submissionRepository;
     @Autowired private StudentRepository studentRepository;
-
+    @Autowired private Cloudinary cloudinary;
     // 🔥 API 1: TẠO ĐỀ TÀI ĐỒ ÁN
     @PostMapping("/topics/create")
     public ThesisTopic createTopic(@RequestParam String title) {
@@ -54,25 +57,40 @@ public class ThesisController {
         return registrationRepository.save(reg);
     }
 
-    // 🔥 API 3: NỘP BÀI (Hứng link file từ Cloudinary)
-    @PostMapping("/submit")
+    // 🔥 API 3 (NÂNG CẤP): NỘP BÀI CÓ UPLOAD FILE THẬT
+    @PostMapping(value = "/submit", consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
     public ThesisSubmission submitThesis(
             @RequestParam UUID topicId,
             @RequestParam UUID studentId,
-            @RequestParam String fileUrl) { 
+            @RequestParam("file") MultipartFile file) { // <-- Thay đổi ở đây
 
-        ThesisTopic topic = topicRepository.findById(topicId)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy đề tài!"));
-        
-        Student student = studentRepository.findById(studentId)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy sinh viên!"));
+        try {
+            // 1. Kiểm tra tồn tại
+            ThesisTopic topic = topicRepository.findById(topicId)
+                    .orElseThrow(() -> new RuntimeException("Không tìm thấy đề tài!"));
+            
+            Student student = studentRepository.findById(studentId)
+                    .orElseThrow(() -> new RuntimeException("Không tìm thấy sinh viên!"));
 
-        ThesisSubmission submission = new ThesisSubmission();
-        submission.setTopic(topic);
-        submission.setStudent(student);
-        submission.setFileUrl(fileUrl); // Lưu lại đường dẫn tới file báo cáo PDF/Word
-        submission.setScore(0.0); // Khởi tạo điểm là 0 (chờ giảng viên chấm)
+            // 2. Upload file lên Cloudinary
+            Map uploadResult = cloudinary.uploader().upload(file.getBytes(), ObjectUtils.asMap(
+                    "resource_type", "auto",       // Tự nhận diện file PDF, Docx, Ảnh...
+                    "folder", "sep_thesis_submissions" // Tên thư mục trên Cloud
+            ));
+            
+            String fileUrl = (String) uploadResult.get("secure_url"); // Lấy link về
 
-        return submissionRepository.save(submission);
+            // 3. Lưu link vào Database
+            ThesisSubmission submission = new ThesisSubmission();
+            submission.setTopic(topic);
+            submission.setStudent(student);
+            submission.setFileUrl(fileUrl);
+            submission.setScore(0.0);
+
+            return submissionRepository.save(submission);
+
+        } catch (Exception e) {
+            throw new RuntimeException("Lỗi upload file: " + e.getMessage());
+        }
     }
 }

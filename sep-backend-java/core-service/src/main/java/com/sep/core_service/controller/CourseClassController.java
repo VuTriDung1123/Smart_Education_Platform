@@ -25,8 +25,6 @@ import com.sep.core_service.repository.EnrollmentRepository;
 import com.sep.core_service.repository.StudentRepository;
 import com.sep.core_service.repository.SubjectRepository;
 
-import jakarta.persistence.Column;
-
 @RestController
 @RequestMapping("/api/classes")
 public class CourseClassController {
@@ -35,6 +33,7 @@ public class CourseClassController {
     @Autowired private SubjectRepository subjectRepository;
     @Autowired private EnrollmentRepository enrollmentRepository;
     @Autowired private StudentRepository studentRepository;
+    
 
     // 🔥 API 1: PHÒNG ĐÀO TẠO MỞ LỚP HỌC MỚI
     @PostMapping("/create")
@@ -105,6 +104,5 @@ public class CourseClassController {
         
         return response;
     }
-    @Column(name = "enrollment_date")
-    private LocalDate enrollmentDate;
+    
 }
