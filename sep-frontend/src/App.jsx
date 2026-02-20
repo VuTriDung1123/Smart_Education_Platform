@@ -1,45 +1,26 @@
-import { useState } from 'react'
-import authService from './services/authService'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import Login from './pages/Login';
+import AdminDashboard from './pages/AdminDashboard';
+import LecturerDashboard from './pages/LecturerDashboard';
+import StudentDashboard from './pages/StudentDashboard';
 
 function App() {
-  const [username, setUsername] = useState('')
-  const [password, setPassword] = useState('')
-
-  const handleLogin = async (e) => {
-    e.preventDefault()
-    try {
-      await authService.login(username, password)
-      alert("Đăng nhập thành công! Token đã được lưu.")
-      // Sau này sẽ chuyển hướng sang trang Dashboard ở đây
-    } catch (error) {
-      alert("Đăng nhập thất bại: " + error.message)
-    }
-  }
-
   return (
-    <div style={{ padding: 50 }}>
-      <h1>SEP Login</h1>
-      <form onSubmit={handleLogin}>
-        <div>
-          <input 
-            type="text" 
-            placeholder="Username" 
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-          />
-        </div>
-        <div style={{ marginTop: 10 }}>
-          <input 
-            type="password" 
-            placeholder="Password" 
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
-        </div>
-        <button type="submit" style={{ marginTop: 10 }}>Đăng nhập</button>
-      </form>
-    </div>
+    <BrowserRouter>
+      <Routes>
+        {/* Trang mặc định là Đăng nhập */}
+        <Route path="/" element={<Login />} />
+        
+        {/* Các trang sau khi đăng nhập */}
+        <Route path="/admin" element={<AdminDashboard />} />
+        <Route path="/lecturer" element={<LecturerDashboard />} />
+        <Route path="/student" element={<StudentDashboard />} />
+        
+        {/* Nếu gõ đường dẫn bậy bạ thì đẩy về trang chủ */}
+        <Route path="*" element={<Navigate to="/" />} />
+      </Routes>
+    </BrowserRouter>
   )
 }
 
-export default App
+export default App;

@@ -1,6 +1,6 @@
 package com.sep.core_service.controller;
 
-import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -26,7 +26,8 @@ public class AuthController {
     private final PasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
     @PostMapping("/login")
-    public Map<String, String> login(@RequestBody Map<String, String> loginRequest) {
+    // 🔥 ĐỔI Map<String, String> THÀNH Map<String, Object>
+    public Map<String, Object> login(@RequestBody Map<String, String> loginRequest) {
         String username = loginRequest.get("username");
         String password = loginRequest.get("password");
 
@@ -42,10 +43,26 @@ public class AuthController {
         // 3. Nếu đúng hết -> In thẻ bài (Token)
         String token = jwtUtils.generateToken(username);
 
+        // 🔥 Lấy danh sách quyền (Role) của User
+        List<String> roles = new java.util.ArrayList<>();
+        if (user.getRoles() != null) {
+            user.getRoles().forEach(role -> roles.add(role.getName()));
+        }
+        
+        // 🛠️ MẸO TEST: Hiện tại DB của bạn đang chưa có Role nào, 
+        // Mình sẽ gán mặc định là "STUDENT" để bạn test chuyển trang nhé.
+        // Sau này có data thật, bạn chỉ cần xóa 3 dòng if này đi là xong.
+        if (roles.isEmpty()) {
+            roles.add("STUDENT"); // Thử đổi chữ này thành "ADMIN" hoặc "LECTURER" để test các trang khác
+        }
+
         // 4. Trả về
-        Map<String, String> response = new HashMap<>();
+        Map<String, Object> response = new java.util.HashMap<>();
         response.put("token", token);
         response.put("message", "Đăng nhập thành công!");
+        response.put("fullName", user.getFullName()); // Trả về tên thật để hiển thị lời chào
+        response.put("roles", roles); // Trả về mảng các quyền
+
         return response;
     }
 }
