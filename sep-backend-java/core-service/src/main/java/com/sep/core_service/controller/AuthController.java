@@ -49,13 +49,7 @@ public class AuthController {
             user.getRoles().forEach(role -> roles.add(role.getName()));
         }
         
-        // 🛠️ MẸO TEST: Hiện tại DB của bạn đang chưa có Role nào, 
-        // Mình sẽ gán mặc định là "STUDENT" để bạn test chuyển trang nhé.
-        // Sau này có data thật, bạn chỉ cần xóa 3 dòng if này đi là xong.
-        if (roles.isEmpty()) {
-            roles.add("STUDENT"); // Thử đổi chữ này thành "ADMIN" hoặc "LECTURER" để test các trang khác
-        }
-
+        
         // 4. Trả về
         Map<String, Object> response = new java.util.HashMap<>();
         response.put("token", token);
