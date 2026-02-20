@@ -1,34 +1,44 @@
 import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import authService from './services/authService'
 
 function App() {
-  const [count, setCount] = useState(0)
+  const [username, setUsername] = useState('')
+  const [password, setPassword] = useState('')
+
+  const handleLogin = async (e) => {
+    e.preventDefault()
+    try {
+      await authService.login(username, password)
+      alert("Đăng nhập thành công! Token đã được lưu.")
+      // Sau này sẽ chuyển hướng sang trang Dashboard ở đây
+    } catch (error) {
+      alert("Đăng nhập thất bại: " + error.message)
+    }
+  }
 
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.jsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
+    <div style={{ padding: 50 }}>
+      <h1>SEP Login</h1>
+      <form onSubmit={handleLogin}>
+        <div>
+          <input 
+            type="text" 
+            placeholder="Username" 
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+          />
+        </div>
+        <div style={{ marginTop: 10 }}>
+          <input 
+            type="password" 
+            placeholder="Password" 
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+        </div>
+        <button type="submit" style={{ marginTop: 10 }}>Đăng nhập</button>
+      </form>
+    </div>
   )
 }
 

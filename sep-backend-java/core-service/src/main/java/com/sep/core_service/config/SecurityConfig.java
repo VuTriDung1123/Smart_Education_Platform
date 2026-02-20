@@ -1,5 +1,7 @@
 package com.sep.core_service.config;
 
+import java.util.List;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -8,8 +10,13 @@ import org.springframework.security.config.annotation.authentication.configurati
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 @Configuration
 @EnableWebSecurity
@@ -20,34 +27,48 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-            .csrf(csrf -> csrf.disable()) // Tắt CSRF vì dùng API
+            // 1. Kích hoạt CORS (Cho phép Frontend gọi vào)
+            .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+            
+            .csrf(csrf -> csrf.disable())
             .authorizeHttpRequests(auth -> auth
-                // 1. Cho phép tự do vào các trang này (không cần Token)
                 .requestMatchers(
-                        "/api/auth/**",           // Đăng nhập, Đăng ký
-                        "/api/users/register",    // Đăng ký user
-                        "/v3/api-docs/**",        // Tài liệu API
-                        "/swagger-ui/**",         // Giao diện Swagger
+                        "/api/auth/**",
+                        "/api/users/register",
+                        "/v3/api-docs/**",
+                        "/swagger-ui/**",
                         "/swagger-ui.html"
                 ).permitAll()
-                
-                // 2. Tất cả các trang khác: BẮT BUỘC PHẢI CÓ TOKEN
                 .anyRequest().authenticated()
             )
-            .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS)) // Không lưu Session
-            .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class); // Gắn bộ lọc JWT vào
+            .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
+
+    // 🔥 Bean cấu hình CORS chi tiết
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration configuration = new CorsConfiguration();
+        // Cho phép Frontend chạy ở cổng 5173 (Vite mặc định)
+        configuration.setAllowedOrigins(List.of("http://localhost:5173")); 
+        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        configuration.setAllowedHeaders(List.of("*"));
+        configuration.setAllowCredentials(true);
+
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", configuration);
+        return source;
+    }
     
-    // Bean cần thiết để AuthController hoạt động
     @Bean
     public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
         return config.getAuthenticationManager();
     }
 
     @Bean
-    public org.springframework.security.crypto.password.PasswordEncoder passwordEncoder() {
-        return new org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder();
+    public PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
     }
 }
