@@ -51,8 +51,8 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        // Cho phép Frontend chạy ở cổng 5173 (Vite mặc định)
-        configuration.setAllowedOrigins(List.of("http://localhost:5173")); 
+        // Dùng Pattern "*" để chấp nhận mọi cổng (localhost:5173, 127.0.0.1...)
+        configuration.setAllowedOriginPatterns(List.of("*")); 
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(true);
