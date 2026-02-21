@@ -3,6 +3,7 @@ import Login from './pages/Login';
 import AdminDashboard from './pages/AdminDashboard';
 import LecturerDashboard from './pages/LecturerDashboard';
 import StudentDashboard from './pages/StudentDashboard';
+import AdminSubjects from './pages/AdminSubjects';
 
 function App() {
   return (
@@ -15,9 +16,12 @@ function App() {
         <Route path="/admin" element={<AdminDashboard />} />
         <Route path="/lecturer" element={<LecturerDashboard />} />
         <Route path="/student" element={<StudentDashboard />} />
+        <Route path="/admin/subjects" element={<AdminSubjects />} />
         
         {/* Nếu gõ đường dẫn bậy bạ thì đẩy về trang chủ */}
         <Route path="*" element={<Navigate to="/" />} />
+
+        
       </Routes>
     </BrowserRouter>
   )

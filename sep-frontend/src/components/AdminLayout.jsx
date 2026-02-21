@@ -14,8 +14,7 @@ export default function AdminLayout({ children }) {
     // Danh sách menu
     const menuItems = [
         { path: '/admin', name: 'Tổng quan', icon: <FaTachometerAlt /> },
-        { path: '#', name: 'Quản lý Tài khoản', icon: <FaUsers /> },
-        { path: '#', name: 'Quản lý Lớp học', icon: <FaChalkboardTeacher /> },
+        { path: '/admin/subjects', name: 'Quản lý Môn học', icon: <FaChalkboardTeacher /> }, // Cập nhật dòng này
         { path: '#', name: 'Cài đặt hệ thống', icon: <FaCog /> },
     ];
 
