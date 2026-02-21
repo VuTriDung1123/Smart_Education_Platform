@@ -46,6 +46,7 @@ public class SubjectController {
         subject.setCredits(details.getCredits());
         subject.setIsElective(details.getIsElective());
         subject.setIsCalculatedInGpa(details.getIsCalculatedInGpa());
+        subject.setCategory(details.getCategory()); 
         subject.setDescription(details.getDescription());
 
         return subjectRepository.save(subject);

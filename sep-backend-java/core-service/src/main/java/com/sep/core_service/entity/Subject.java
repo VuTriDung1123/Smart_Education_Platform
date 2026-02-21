@@ -40,6 +40,10 @@ public class Subject {
     // Phân loại: Môn tự chọn (true) hay Bắt buộc (false)
     private Boolean isElective = false;
 
+    //Nhóm môn (Cơ bản, Chính trị, Chuyên ngành...)
+    @Column(nullable = false)
+    private String category = "Chuyên ngành";
+
     private String description;
 
     // Liên kết: Một môn học có thể có nhiều lớp được mở
