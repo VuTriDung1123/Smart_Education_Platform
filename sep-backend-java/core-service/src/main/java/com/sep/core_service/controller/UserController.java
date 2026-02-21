@@ -73,4 +73,34 @@ public class UserController {
 
         return userRepository.save(user);
     }
+
+    // 🔥 API SỬA TÀI KHOẢN (UPDATE)
+    @PutMapping("/{id}")
+    public User updateUser(@PathVariable java.util.UUID id, @RequestBody Map<String, String> requestData) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy tài khoản!"));
+        
+        // Cập nhật thông tin (Không cho sửa Username và Password ở đây để bảo mật)
+        user.setFullName(requestData.get("fullName"));
+        user.setEmail(requestData.get("email"));
+        user.setStatus(requestData.get("status")); // ACTIVE hoặc INACTIVE
+
+        // Cập nhật Quyền
+        String roleName = requestData.get("role");
+        if (roleName != null) {
+            Role role = roleRepository.findByName(roleName)
+                    .orElseThrow(() -> new RuntimeException("Không tìm thấy quyền: " + roleName));
+            Set<Role> roles = new HashSet<>();
+            roles.add(role);
+            user.setRoles(roles);
+        }
+
+        return userRepository.save(user);
+    }
+
+    // 🔥 API XÓA TÀI KHOẢN (DELETE)
+    @DeleteMapping("/{id}")
+    public void deleteUser(@PathVariable java.util.UUID id) {
+        userRepository.deleteById(id);
+    }
 }
