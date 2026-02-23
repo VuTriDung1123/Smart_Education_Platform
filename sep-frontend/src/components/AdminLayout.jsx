@@ -1,5 +1,6 @@
 import { useNavigate, useLocation } from 'react-router-dom';
-import { FaTachometerAlt, FaUsers, FaChalkboardTeacher, FaCog, FaSignOutAlt } from 'react-icons/fa';
+import { FaTachometerAlt, FaUsers, FaBook, FaChalkboardTeacher, FaCog, FaSignOutAlt } from 'react-icons/fa';
+
 
 export default function AdminLayout({ children }) {
     const navigate = useNavigate();
@@ -14,7 +15,9 @@ export default function AdminLayout({ children }) {
     // Danh sách menu
     const menuItems = [
         { path: '/admin', name: 'Tổng quan', icon: <FaTachometerAlt /> },
-        { path: '/admin/subjects', name: 'Quản lý Môn học', icon: <FaChalkboardTeacher /> }, // Cập nhật dòng này
+        { path: '/admin/users', name: 'Quản lý Tài khoản', icon: <FaUsers /> },
+        { path: '/admin/subjects', name: 'Quản lý Môn học', icon: <FaBook /> },
+        { path: '/admin/classrooms', name: 'Quản lý Lớp học', icon: <FaChalkboardTeacher /> }, 
         { path: '#', name: 'Cài đặt hệ thống', icon: <FaCog /> },
     ];
 
