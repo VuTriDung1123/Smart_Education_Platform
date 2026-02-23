@@ -39,6 +39,14 @@ public class User {
     @Column(name = "password_hash", nullable = false)
     private String password;
 
+
+    // 🔥 THÊM CÁC TRƯỜNG THÔNG TIN SINH VIÊN VÀO ĐÂY
+    private String studentCode; // MSSV
+    private String gender; // Giới tính
+    private String dateOfBirth; // Ngày sinh
+    private String placeOfBirth; // Nơi sinh
+    private String major; // Chuyên ngành
+    private String batch; // Khóa học
     private String fullName;
     
     
