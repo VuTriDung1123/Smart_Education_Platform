@@ -4,6 +4,7 @@ import AdminDashboard from './pages/AdminDashboard';
 import LecturerDashboard from './pages/LecturerDashboard';
 import StudentDashboard from './pages/StudentDashboard';
 import AdminSubjects from './pages/AdminSubjects';
+import AdminClassrooms from './pages/AdminClassrooms';
 
 function App() {
   return (
@@ -17,6 +18,7 @@ function App() {
         <Route path="/lecturer" element={<LecturerDashboard />} />
         <Route path="/student" element={<StudentDashboard />} />
         <Route path="/admin/subjects" element={<AdminSubjects />} />
+        <Route path="/admin/classrooms" element={<AdminClassrooms />} />
         
         {/* Nếu gõ đường dẫn bậy bạ thì đẩy về trang chủ */}
         <Route path="*" element={<Navigate to="/" />} />
