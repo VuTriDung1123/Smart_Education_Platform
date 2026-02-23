@@ -1,5 +1,6 @@
 package com.sep.core_service.repository;
 
+import java.util.List;
 import java.util.UUID;
 
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -10,4 +11,5 @@ import com.sep.core_service.entity.Classroom;
 @Repository
 public interface ClassroomRepository extends JpaRepository<Classroom, UUID> {
     boolean existsByClassCode(String classCode);
+    List<Classroom> findByLecturerId(UUID lecturerId);
 }
