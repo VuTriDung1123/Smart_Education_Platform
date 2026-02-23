@@ -106,9 +106,18 @@ export default function StudentPortal() {
     const renderDashboard = () => {
         if (!portalData) return <p>Đang tải thông tin cá nhân...</p>;
         const profile = portalData.profile;
+        
+        // 🔥 LOGIC CHUẨN: Chỉ cộng tín chỉ của những môn có điểm ĐẠT
+        const earnedCredits = (portalData.grades || [])
+            .filter(g => g.status === 'Đạt')
+            .reduce((sum, g) => sum + g.credits, 0);
+
+        const totalRequired = 120; // Tổng tín chỉ yêu cầu của ngành
+        const percentage = (earnedCredits / totalRequired) * 360;
 
         return (
             <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '25px' }}>
+                {/* Khối Profile giữ nguyên */}
                 <div style={{ backgroundColor: 'white', padding: '25px', borderRadius: '12px', boxShadow: '0 2px 10px rgba(0,0,0,0.05)' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '2px solid #006666', paddingBottom: '10px' }}>
                         <h3 style={{ color: '#006666', margin: 0 }}><FaRegIdCard /> Thông tin sinh viên</h3>
@@ -131,15 +140,20 @@ export default function StudentPortal() {
                     </div>
                 </div>
 
+                {/* Khối Tiến độ học tập */}
                 <div style={{ backgroundColor: 'white', padding: '25px', borderRadius: '12px', boxShadow: '0 2px 10px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                     <h3 style={{ color: '#006666', width: '100%', borderBottom: '2px solid #006666', paddingBottom: '10px', marginTop: 0, textAlign: 'center' }}><FaChartBar /> Tiến độ học tập</h3>
-                    <div style={{ marginTop: '20px', width: '160px', height: '160px', borderRadius: '50%', background: `conic-gradient(#0dcaf0 ${((75 + totalCredits)/120) * 360}deg, #e9ecef 0deg)`, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: 'inset 0 0 10px rgba(0,0,0,0.1)' }}>
+                    
+                    {/* Vòng tròn tính toán dựa trên số liệu THẬT */}
+                    <div style={{ marginTop: '20px', width: '160px', height: '160px', borderRadius: '50%', background: `conic-gradient(#0dcaf0 ${percentage}deg, #e9ecef 0deg)`, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: 'inset 0 0 10px rgba(0,0,0,0.1)' }}>
                         <div style={{ width: '120px', height: '120px', backgroundColor: 'white', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', boxShadow: '0 2px 5px rgba(0,0,0,0.1)' }}>
-                            <span style={{ fontWeight: 'bold', fontSize: '22px', color: '#333' }}>{75 + totalCredits}/120</span>
+                            <span style={{ fontWeight: 'bold', fontSize: '22px', color: '#333' }}>{earnedCredits}/{totalRequired}</span>
                             <span style={{ fontSize: '12px', color: '#666', fontWeight: 'bold' }}>Tín chỉ</span>
                         </div>
                     </div>
-                    <p style={{ marginTop: '20px', color: '#555', fontWeight: '500' }}>Học kỳ 2 năm học 2025-2026</p>
+                    <p style={{ marginTop: '20px', color: '#555', fontWeight: '500', fontSize: '14px', textAlign: 'center' }}>
+                        Dữ liệu dựa trên số tín chỉ tích lũy (Các môn đã có điểm & đạt)
+                    </p>
                 </div>
 
                 {/* MODAL CẬP NHẬT HỒ SƠ */}
@@ -243,46 +257,29 @@ export default function StudentPortal() {
     const renderTimetable = () => (
         <div style={{ backgroundColor: 'white', padding: '25px', borderRadius: '12px', boxShadow: '0 2px 10px rgba(0,0,0,0.05)' }}>
             <h3 style={{ color: '#006666', marginTop: 0 }}><FaCalendarAlt /> Thời khóa biểu tuần này</h3>
+            
             {myClasses.length === 0 ? (
-                <p style={{ color: '#dc3545', fontStyle: 'italic' }}>Bạn chưa đăng ký môn học nào nên chưa có lịch học.</p>
+                <div style={{ textAlign: 'center', padding: '40px', backgroundColor: '#f8f9fa', borderRadius: '8px', border: '1px dashed #ccc' }}>
+                    <p style={{ color: '#777', fontSize: '16px', margin: 0 }}>Bạn chưa đăng ký lớp học phần nào.</p>
+                </div>
             ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: '80px repeat(6, 1fr)', gap: '1px', backgroundColor: '#dee2e6', border: '1px solid #dee2e6' }}>
-                    <div style={{ backgroundColor: '#00796b', color: 'white', padding: '15px 5px', textAlign: 'center', fontWeight: 'bold' }}>Ca học</div>
-                    {['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'].map(d => (
-                        <div key={d} style={{ backgroundColor: '#00796b', color: 'white', padding: '15px 5px', textAlign: 'center', fontWeight: 'bold' }}>{d}</div>
-                    ))}
+                <div style={{ textAlign: 'center', padding: '40px', backgroundColor: '#f8f9fa', borderRadius: '8px', border: '1px dashed #ccc' }}>
+                    <FaCalendarAlt size={40} color="#adb5bd" style={{ marginBottom: '15px' }} />
+                    <h4 style={{ color: '#555', margin: '0 0 10px 0' }}>Hệ thống chưa cập nhật lịch học cụ thể</h4>
+                    <p style={{ color: '#777', margin: 0, fontSize: '14px' }}>
+                        Các lớp học phần bạn đã đăng ký hiện chưa có dữ liệu về thời gian (Thứ/Ca) và Phòng học từ Phòng Đào Tạo. Vui lòng theo dõi lại sau!
+                    </p>
                     
-                    <div style={{ backgroundColor: '#f8f9fa', padding: '20px 5px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', color: '#006666' }}>Sáng</div>
-                    {['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'].map((d, index) => {
-                        const classForThisDay = myClasses[index % myClasses.length];
-                        return (
-                            <div key={`sang-${d}`} style={{ backgroundColor: 'white', padding: '10px', fontSize: '13px' }}>
-                                {index % 2 === 0 && classForThisDay ? (
-                                    <div style={{ backgroundColor: '#e0f2f1', padding: '10px', borderRadius: '6px', borderLeft: '4px solid #006666' }}>
-                                        <strong style={{ color: '#006666', display: 'block', marginBottom: '5px' }}>{classForThisDay.subject}</strong>
-                                        <div style={{ color: '#555' }}>Mã: {classForThisDay.classCode}</div>
-                                        <div style={{ color: '#555' }}>Phòng: ONLINE</div>
-                                    </div>
-                                ) : null}
-                            </div>
-                        )
-                    })}
-
-                    <div style={{ backgroundColor: '#f8f9fa', padding: '20px 5px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', color: '#006666' }}>Chiều</div>
-                    {['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'].map((d, index) => {
-                        const classForThisDay = myClasses[(index + 1) % myClasses.length];
-                        return (
-                            <div key={`chieu-${d}`} style={{ backgroundColor: 'white', padding: '10px', fontSize: '13px' }}>
-                                {index % 2 !== 0 && classForThisDay ? (
-                                    <div style={{ backgroundColor: '#eef2ff', padding: '10px', borderRadius: '6px', borderLeft: '4px solid #3f51b5' }}>
-                                        <strong style={{ color: '#3f51b5', display: 'block', marginBottom: '5px' }}>{classForThisDay.subject}</strong>
-                                        <div style={{ color: '#555' }}>Mã: {classForThisDay.classCode}</div>
-                                        <div style={{ color: '#555' }}>Phòng: LAB-102</div>
-                                    </div>
-                                ) : null}
-                            </div>
-                        )
-                    })}
+                    <div style={{ marginTop: '20px', textAlign: 'left', display: 'inline-block', backgroundColor: 'white', padding: '15px 25px', borderRadius: '8px', boxShadow: '0 2px 5px rgba(0,0,0,0.05)' }}>
+                        <h5 style={{ margin: '0 0 10px 0', color: '#006666' }}>Danh sách lớp chờ xếp lịch:</h5>
+                        <ul style={{ margin: 0, paddingLeft: '20px', color: '#444' }}>
+                            {myClasses.map(c => (
+                                <li key={c.id} style={{ marginBottom: '5px' }}>
+                                    <strong>{c.classCode}</strong> - {c.subject}
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
                 </div>
             )}
         </div>
@@ -296,44 +293,52 @@ export default function StudentPortal() {
             <div style={{ backgroundColor: 'white', padding: '25px', borderRadius: '12px', boxShadow: '0 2px 10px rgba(0,0,0,0.05)' }}>
                 <h3 style={{ color: '#006666', marginTop: 0 }}><FaListOl /> Bảng điểm học tập</h3>
                 
-                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'center', marginTop: '15px' }}>
-                    <thead>
-                        <tr style={{ backgroundColor: '#00796b', color: 'white' }}>
-                            <th style={{ padding: '12px' }}>Mã HP</th>
-                            <th style={{ padding: '12px', textAlign: 'left' }}>Tên học phần</th>
-                            <th style={{ padding: '12px' }}>Tín chỉ</th>
-                            <th style={{ padding: '12px' }}>Học kỳ</th>
-                            <th style={{ padding: '12px' }}>Quá trình</th>
-                            <th style={{ padding: '12px' }}>Thi</th>
-                            <th style={{ padding: '12px' }}>Tổng kết</th>
-                            <th style={{ padding: '12px' }}>Điểm chữ</th>
-                            <th style={{ padding: '12px' }}>Đạt</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {grades.length > 0 ? grades.map((g, index) => (
-                            <tr key={index} style={{ borderBottom: '1px solid #eee' }}>
-                                <td style={{ padding: '12px', fontWeight: 'bold', color: '#006666' }}>{g.subjectCode}</td>
-                                <td style={{ padding: '12px', textAlign: 'left', fontWeight: '500' }}>{g.subjectName}</td>
-                                <td>{g.credits}</td>
-                                <td style={{ fontStyle: 'italic', fontSize: '13px', color: '#666' }}>{g.semester}</td>
-                                <td>{g.processScore !== null ? g.processScore : '-'}</td>
-                                <td>{g.finalScore !== null ? g.finalScore : '-'}</td>
-                                <td style={{fontWeight: 'bold'}}>{g.totalScore !== null ? g.totalScore : '-'}</td>
-                                <td style={{fontWeight: 'bold', color: g.letterGrade === 'F' ? '#dc3545' : '#28a745'}}>{g.letterGrade || '-'}</td>
-                                <td>
-                                    {g.status === 'Đạt' ? (
-                                        <FaCheckCircle color="#28a745" title="Đạt" size={18} />
-                                    ) : (
-                                        <FaTimesCircle color="#dc3545" title="Học lại" size={18} />
-                                    )}
-                                </td>
+                {grades.length === 0 ? (
+                    // 🌟 Giao diện khi CHƯA CÓ ĐIỂM
+                    <div style={{ textAlign: 'center', padding: '50px', backgroundColor: '#f8f9fa', borderRadius: '8px', border: '1px dashed #ccc', marginTop: '15px' }}>
+                        <FaListOl size={40} color="#adb5bd" style={{ marginBottom: '15px' }} />
+                        <h4 style={{ color: '#555', margin: '0 0 5px 0' }}>Chưa có dữ liệu điểm</h4>
+                        <p style={{ color: '#777', fontSize: '14px', margin: 0 }}>Hệ thống chưa ghi nhận kết quả học tập nào của bạn.</p>
+                    </div>
+                ) : (
+                    // 🌟 Giao diện khi ĐÃ CÓ ĐIỂM
+                    <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'center', marginTop: '15px' }}>
+                        <thead>
+                            <tr style={{ backgroundColor: '#00796b', color: 'white' }}>
+                                <th style={{ padding: '12px' }}>Mã HP</th>
+                                <th style={{ padding: '12px', textAlign: 'left' }}>Tên học phần</th>
+                                <th style={{ padding: '12px' }}>Tín chỉ</th>
+                                <th style={{ padding: '12px' }}>Học kỳ</th>
+                                <th style={{ padding: '12px' }}>Quá trình</th>
+                                <th style={{ padding: '12px' }}>Thi</th>
+                                <th style={{ padding: '12px' }}>Tổng kết</th>
+                                <th style={{ padding: '12px' }}>Điểm chữ</th>
+                                <th style={{ padding: '12px' }}>Đạt</th>
                             </tr>
-                        )) : (
-                            <tr><td colSpan="9" style={{ padding: '20px', color: '#999' }}>Chưa có dữ liệu điểm học tập.</td></tr>
-                        )}
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody>
+                            {grades.map((g, index) => (
+                                <tr key={index} style={{ borderBottom: '1px solid #eee' }}>
+                                    <td style={{ padding: '12px', fontWeight: 'bold', color: '#006666' }}>{g.subjectCode}</td>
+                                    <td style={{ padding: '12px', textAlign: 'left', fontWeight: '500' }}>{g.subjectName}</td>
+                                    <td>{g.credits}</td>
+                                    <td style={{ fontStyle: 'italic', fontSize: '13px', color: '#666' }}>{g.semester}</td>
+                                    <td>{g.processScore !== null ? g.processScore : '-'}</td>
+                                    <td>{g.finalScore !== null ? g.finalScore : '-'}</td>
+                                    <td style={{fontWeight: 'bold'}}>{g.totalScore !== null ? g.totalScore : '-'}</td>
+                                    <td style={{fontWeight: 'bold', color: g.letterGrade === 'F' ? '#dc3545' : '#28a745'}}>{g.letterGrade || '-'}</td>
+                                    <td>
+                                        {g.status === 'Đạt' ? (
+                                            <FaCheckCircle color="#28a745" title="Đạt" size={18} />
+                                        ) : (
+                                            <FaTimesCircle color="#dc3545" title="Học lại" size={18} />
+                                        )}
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                )}
             </div>
         );
     };
