@@ -8,6 +8,7 @@ import java.util.UUID;
 import org.hibernate.annotations.GenericGenerator;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
@@ -61,8 +62,8 @@ public class Subject {
 
     // 🔥 QUẢN LÝ ĐIỀU KIỆN RÀNG BUỘC (Self-referencing)
 
-    // 1. Môn học trước (Ký hiệu 'a' trong tài liệu của bạn)
-    @JsonIgnore
+    // 1. Môn học trước (Ký hiệu 'a')
+    @JsonIgnoreProperties({"previousSubjects", "prerequisiteSubjects", "corequisiteSubjects", "classrooms"})
     @ManyToMany
     @JoinTable(
         name = "subject_previous",
@@ -72,7 +73,7 @@ public class Subject {
     private Set<Subject> previousSubjects = new HashSet<>();
 
     // 2. Môn tiên quyết (Ký hiệu 'b')
-    @JsonIgnore
+    @JsonIgnoreProperties({"previousSubjects", "prerequisiteSubjects", "corequisiteSubjects", "classrooms"})
     @ManyToMany
     @JoinTable(
         name = "subject_prerequisites",
@@ -82,7 +83,7 @@ public class Subject {
     private Set<Subject> prerequisiteSubjects = new HashSet<>();
 
     // 3. Môn song hành (Ký hiệu 'c')
-    @JsonIgnore
+    @JsonIgnoreProperties({"previousSubjects", "prerequisiteSubjects", "corequisiteSubjects", "classrooms"})
     @ManyToMany
     @JoinTable(
         name = "subject_corequisites",
