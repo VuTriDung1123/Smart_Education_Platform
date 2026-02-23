@@ -10,6 +10,9 @@ import com.sep.core_service.entity.Enrollment;
 
 @Repository
 public interface EnrollmentRepository extends JpaRepository<Enrollment, UUID> {
-    // Kỹ năng mới: Lấy toàn bộ danh sách đăng ký dựa vào ID của Lớp học
+    // Tìm các lớp mà 1 sinh viên đã đăng ký
+    List<Enrollment> findByStudent_User_Id(UUID userId);
+
+    // 🔥 DÒNG QUAN TRỌNG ĐỂ SỬA LỖI CONTROLLER: Tìm danh sách sinh viên trong 1 lớp
     List<Enrollment> findByCourseClassId(UUID courseClassId);
 }

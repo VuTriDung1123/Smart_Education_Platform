@@ -12,6 +12,14 @@ const studentService = {
     dropClass: async (classId, studentId) => {
         const response = await axiosClient.delete(`/classrooms/${classId}/students/${studentId}`);
         return response.data;
+    },
+    getMyPortalData: async (userId) => {
+        const response = await axiosClient.get(`/student-portal/me/${userId}`);
+        return response.data;
+    },
+    updateProfile: async (userId, profileData) => {
+        const response = await axiosClient.put(`/student-portal/profile/${userId}`, profileData);
+        return response.data;
     }
 };
 
