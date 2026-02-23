@@ -1,3 +1,5 @@
+import StudentPortal from './pages/StudentPortal';
+
 export default function StudentDashboard() {
     const fullName = localStorage.getItem('fullName');
     return (
