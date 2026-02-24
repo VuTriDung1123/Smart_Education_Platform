@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import userService from '../services/userService';
 import AdminLayout from '../components/AdminLayout';
-import { FaUserGraduate, FaChalkboardTeacher, FaUsers, FaTimes } from 'react-icons/fa';
+import { FaUserGraduate, FaChalkboardTeacher, FaUsers, FaTimes, FaFileExcel } from 'react-icons/fa';
 
 export default function AdminUsers() {
     const [users, setUsers] = useState([]);
@@ -49,6 +49,29 @@ export default function AdminUsers() {
         // eslint-disable-next-line react-hooks/set-state-in-effect
         fetchUsers();
     }, []);
+
+
+    // ==========================================
+    // 4. XỬ LÝ IMPORT EXCEL
+    // ==========================================
+    const fileInputRef = useRef(null);
+
+    const handleFileUpload = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        
+        try {
+            setLoading(true);
+            const message = await userService.importUsersFromExcel(file);
+            alert(message);
+            fetchUsers(); // Load lại bảng sau khi import
+        } catch (error) {
+            alert("❌ Lỗi Import: " + (error.response?.data || error.message));
+        } finally {
+            e.target.value = null; // Reset input để có thể chọn lại file cũ nếu muốn
+            setLoading(false);
+        }
+    };
 
     // Xử lý khi gõ vào form THÊM
     const handleInputChange = (e) => {
@@ -118,6 +141,8 @@ export default function AdminUsers() {
         }
     };
 
+    
+
     // Thống kê số lượng
     const totalUsers = users.length;
     const totalStudents = users.filter(u => u.roles?.some(r => r.name === 'STUDENT')).length;
@@ -159,15 +184,38 @@ export default function AdminUsers() {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
                     <h3 style={{ margin: 0, color: '#333' }}>Danh sách người dùng</h3>
                     
-                    {/* NÚT BẬT POPUP THÊM */}
-                    <button 
-                        onClick={() => setIsModalOpen(true)}
-                        style={{ backgroundColor: '#007bff', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', transition: '0.2s' }}
-                        onMouseOver={(e) => e.target.style.backgroundColor = '#0056b3'}
-                        onMouseOut={(e) => e.target.style.backgroundColor = '#007bff'}
-                    >
-                        + Thêm tài khoản mới
-                    </button>
+                    {/* 🔥 GOM TẤT CẢ VÀO 1 GROUP ĐỂ NÓ NẰM SÁT NHAU Ở GÓC PHẢI */}
+                    <div style={{ display: 'flex', gap: '10px' }}>
+                        
+                        {/* INPUT FILE ẨN */}
+                        <input 
+                            type="file" 
+                            accept=".xlsx, .xls" 
+                            style={{ display: 'none' }} 
+                            ref={fileInputRef} 
+                            onChange={handleFileUpload} 
+                        />
+
+                        {/* NÚT IMPORT EXCEL */}
+                        <button 
+                            onClick={() => fileInputRef.current.click()}
+                            style={{ backgroundColor: '#28a745', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px', transition: '0.2s' }}
+                            onMouseOver={(e) => e.target.style.backgroundColor = '#218838'}
+                            onMouseOut={(e) => e.target.style.backgroundColor = '#28a745'}
+                        >
+                            <FaFileExcel /> Import Excel
+                        </button>
+                        
+                        {/* NÚT BẬT POPUP THÊM */}
+                        <button 
+                            onClick={() => setIsModalOpen(true)}
+                            style={{ backgroundColor: '#007bff', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', transition: '0.2s' }}
+                            onMouseOver={(e) => e.target.style.backgroundColor = '#0056b3'}
+                            onMouseOut={(e) => e.target.style.backgroundColor = '#007bff'}
+                        >
+                            + Thêm tài khoản mới
+                        </button>
+                    </div>
                 </div>
 
                 {loading ? (
