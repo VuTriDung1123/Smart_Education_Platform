@@ -1,76 +1,78 @@
+import React from 'react';
+import { FaUserShield, FaSignOutAlt, FaCalendarCheck, FaBookOpen, FaUsers, FaChartPie, FaChalkboard } from 'react-icons/fa';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { FaTachometerAlt, FaUsers, FaBook, FaChalkboardTeacher, FaCog, FaSignOutAlt } from 'react-icons/fa';
-
 
 export default function AdminLayout({ children }) {
     const navigate = useNavigate();
-    const location = useLocation();
-    const fullName = localStorage.getItem('fullName') || 'Admin';
+    const location = useLocation(); // Tự động lấy đường dẫn hiện tại trên trình duyệt
+    const username = localStorage.getItem('username') || 'Administrator';
 
     const handleLogout = () => {
-        localStorage.clear();
-        navigate('/');
+        localStorage.removeItem('token');
+        localStorage.removeItem('username');
+        localStorage.removeItem('role');
+        navigate('/login');
     };
 
-    // Danh sách menu
+    // 🔥 MAP CHUẨN VỚI CÁC ROUTE TRONG APP.JS CỦA BẠN
     const menuItems = [
-        { path: '/admin', name: 'Tổng quan', icon: <FaTachometerAlt /> },
-        { path: '/admin/users', name: 'Quản lý Tài khoản', icon: <FaUsers /> },
-        { path: '/admin/subjects', name: 'Quản lý Môn học', icon: <FaBook /> },
-        { path: '/admin/classrooms', name: 'Quản lý Lớp học', icon: <FaChalkboardTeacher /> }, 
-        { path: '#', name: 'Cài đặt hệ thống', icon: <FaCog /> },
+        { path: '/admin', label: 'Dashboard & Thống kê', icon: <FaChartPie /> },
+        { path: '/admin/users', label: 'Quản lý Người dùng', icon: <FaUsers /> },
+        { path: '/admin/semesters', label: 'Quản lý Học kỳ', icon: <FaCalendarCheck /> },
+        { path: '/admin/subjects', label: 'Quản lý Môn học', icon: <FaBookOpen /> },
+        { path: '/admin/classrooms', label: 'Quản lý Lớp học', icon: <FaChalkboard /> },
     ];
 
     return (
-        <div style={{ display: 'flex', height: '100vh', backgroundColor: '#f0f4f8', fontFamily: 'sans-serif' }}>
-            {/* SIDEBAR (Cột Menu bên trái - Màu Xanh Dương Đậm) */}
-            <div style={{ width: '260px', backgroundColor: '#004085', color: 'white', display: 'flex', flexDirection: 'column' }}>
-                <div style={{ padding: '20px', fontSize: '24px', fontWeight: 'bold', borderBottom: '1px solid rgba(255,255,255,0.1)', textAlign: 'center' }}>
-                    <span style={{ color: '#66b2ff' }}>SEP</span> Admin
+        <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: '#f4f6f9' }}>
+            {/* Sidebar Đen Nhám */}
+            <div style={{ width: '280px', backgroundColor: '#1a1d21', color: '#c2c7d0', display: 'flex', flexDirection: 'column', boxShadow: '4px 0 10px rgba(0,0,0,0.1)', zIndex: 10 }}>
+                <div style={{ padding: '25px 20px', textAlign: 'center', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                    <div style={{ width: '70px', height: '70px', backgroundColor: '#e5a823', borderRadius: '50%', margin: '0 auto 15px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 15px rgba(229, 168, 35, 0.4)' }}>
+                        <FaUserShield size={35} color="#1a1d21" />
+                    </div>
+                    <h3 style={{ margin: '0 0 5px 0', fontSize: '18px', color: 'white' }}>{username}</h3>
+                    <span style={{ fontSize: '12px', color: '#e5a823', letterSpacing: '2px', textTransform: 'uppercase', fontWeight: 'bold' }}>Quản trị hệ thống</span>
                 </div>
                 
-                <div style={{ flex: 1, padding: '20px 0' }}>
-                    {menuItems.map((item, index) => {
+                <div style={{ padding: '20px 0', flex: 1 }}>
+                    {menuItems.map(item => {
+                        // So sánh chính xác URL để làm sáng Tab đang chọn
                         const isActive = location.pathname === item.path;
+                        
                         return (
                             <div 
-                                key={index} 
-                                onClick={() => item.path !== '#' && navigate(item.path)}
+                                key={item.path}
+                                onClick={() => navigate(item.path)} // Điều hướng đến URL mới
                                 style={{ 
-                                    padding: '15px 25px', 
-                                    display: 'flex', 
-                                    alignItems: 'center', 
-                                    gap: '15px',
-                                    cursor: 'pointer',
-                                    backgroundColor: isActive ? '#0056b3' : 'transparent',
-                                    borderLeft: isActive ? '5px solid #66b2ff' : '5px solid transparent',
-                                    transition: 'all 0.3s'
+                                    padding: '15px 25px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '15px',
+                                    backgroundColor: isActive ? 'rgba(229, 168, 35, 0.1)' : 'transparent',
+                                    borderLeft: isActive ? '4px solid #e5a823' : '4px solid transparent',
+                                    color: isActive ? '#e5a823' : '#c2c7d0',
+                                    transition: 'all 0.2s ease-in-out'
                                 }}
                             >
                                 <span style={{ fontSize: '18px' }}>{item.icon}</span>
-                                <span style={{ fontSize: '16px' }}>{item.name}</span>
+                                <span style={{ fontWeight: isActive ? '600' : 'normal' }}>{item.label}</span>
                             </div>
                         );
                     })}
                 </div>
+
+                <div onClick={handleLogout} style={{ padding: '20px 25px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '12px', borderTop: '1px solid rgba(255,255,255,0.05)', color: '#dc3545', transition: 'all 0.2s' }} onMouseEnter={e => e.target.style.backgroundColor='rgba(220,53,69,0.1)'} onMouseLeave={e => e.target.style.backgroundColor='transparent'}>
+                    <FaSignOutAlt size={18} /> <strong>Đăng xuất bảo mật</strong>
+                </div>
             </div>
 
-            {/* KHU VỰC BÊN PHẢI */}
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-                {/* HEADER (Thanh tiêu đề màu trắng) */}
-                <div style={{ height: '70px', backgroundColor: 'white', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', padding: '0 30px', boxShadow: '0 2px 10px rgba(0,0,0,0.05)' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-                        <span style={{ fontWeight: 'bold', color: '#333' }}>Xin chào, {fullName}</span>
-                        <button 
-                            onClick={handleLogout} 
-                            style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 15px', backgroundColor: '#dc3545', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer', fontWeight: 'bold' }}
-                        >
-                            <FaSignOutAlt /> Đăng xuất
-                        </button>
+            {/* Content Area */}
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
+                <div style={{ backgroundColor: 'white', padding: '20px 30px', boxShadow: '0 2px 5px rgba(0,0,0,0.02)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', zIndex: 5 }}>
+                    <h2 style={{ margin: 0, color: '#1a1d21', fontWeight: 'bold' }}>Cổng Quản Trị Trung Tâm</h2>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <span style={{ width: '10px', height: '10px', backgroundColor: '#28a745', borderRadius: '50%', display: 'inline-block' }}></span>
+                        <span style={{ color: '#666', fontSize: '14px', fontWeight: '500' }}>Hệ thống đang hoạt động</span>
                     </div>
                 </div>
-
-                {/* MAIN CONTENT (Nội dung chính thay đổi theo trang) */}
                 <div style={{ flex: 1, padding: '30px', overflowY: 'auto' }}>
                     {children}
                 </div>
