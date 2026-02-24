@@ -1,11 +1,16 @@
 package com.sep.core_service.controller;
 
+import org.apache.poi.ss.usermodel.*;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.springframework.web.multipart.MultipartFile;
+import java.util.ArrayList;
 import com.sep.core_service.entity.Role;
 import com.sep.core_service.entity.User;
 import com.sep.core_service.service.UserService;
 import com.sep.core_service.repository.RoleRepository;
 import com.sep.core_service.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
@@ -102,5 +107,77 @@ public class UserController {
     @DeleteMapping("/{id}")
     public void deleteUser(@PathVariable java.util.UUID id) {
         userRepository.deleteById(id);
+    }
+
+    // 🔥 API: IMPORT USER TỪ EXCEL (HỖ TRỢ ĐỌC CẢ CÔNG THỨC EXCEL)
+    @PostMapping("/import")
+    public ResponseEntity<?> importUsersFromExcel(@RequestParam("file") MultipartFile file) {
+        if (file.isEmpty()) {
+            return ResponseEntity.badRequest().body("File Excel đang trống!");
+        }
+
+        try (Workbook workbook = new XSSFWorkbook(file.getInputStream())) {
+            Sheet sheet = workbook.getSheetAt(0);
+            List<User> usersToSave = new ArrayList<>();
+            int countSuccess = 0;
+
+            DataFormatter formatter = new DataFormatter();
+            // 🔥 VŨ KHÍ MỚI: Bộ giải mã công thức Excel
+            FormulaEvaluator evaluator = workbook.getCreationHelper().createFormulaEvaluator(); 
+
+            for (int i = 1; i <= sheet.getLastRowNum(); i++) {
+                Row row = sheet.getRow(i);
+                if (row == null) continue;
+
+                try {
+                    // 🔥 Truyền thêm evaluator vào để nó tính ra kết quả (STUDENT) thay vì lấy chuỗi =IF(...)
+                    String username = formatter.formatCellValue(row.getCell(0), evaluator).trim();
+                    String fullName = formatter.formatCellValue(row.getCell(1), evaluator).trim();
+                    String email = formatter.formatCellValue(row.getCell(2), evaluator).trim();
+                    String rawRole = formatter.formatCellValue(row.getCell(3), evaluator).trim(); 
+
+                    if (username.isEmpty()) continue;
+
+                    if (userRepository.findByUsername(username).isPresent()) {
+                        continue;
+                    }
+
+                    User user = new User();
+                    user.setUsername(username);
+                    user.setFullName(fullName);
+                    user.setEmail(email);
+                    user.setPassword(passwordEncoder.encode("123456"));
+                    user.setStatus("ACTIVE");
+
+                    if (user.getRoles() == null) {
+                        user.setRoles(new java.util.HashSet<>());
+                    }
+
+                    String safeRoleName = rawRole.toUpperCase();
+                    if (!safeRoleName.equals("ADMIN") && !safeRoleName.equals("LECTURER") && !safeRoleName.equals("STUDENT")) {
+                        safeRoleName = "STUDENT"; 
+                    }
+
+                    Role role = roleRepository.findByName(safeRoleName).orElse(null);
+                    if (role != null) {
+                        user.getRoles().add(role);
+                    }
+
+                    usersToSave.add(user);
+                    countSuccess++;
+                } catch (Exception e) {
+                    System.out.println("❌ Lỗi ở dòng " + i + ": " + e.getMessage());
+                }
+            }
+
+            if (!usersToSave.isEmpty()) {
+                userRepository.saveAll(usersToSave);
+            }
+            
+            return ResponseEntity.ok("✅ Đã import thành công " + countSuccess + " tài khoản!");
+
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body("❌ Lỗi khi đọc file Excel: " + e.getMessage());
+        }
     }
 }
