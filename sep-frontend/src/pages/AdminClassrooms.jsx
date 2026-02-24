@@ -83,9 +83,9 @@ export default function AdminClassrooms() {
 
     // Lọc lớp học theo từ khóa
     const filteredClassrooms = classrooms.filter(c => 
-        c.classCode.toLowerCase().includes(searchTerm.toLowerCase()) || 
-        c.subject.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        c.lecturer.toLowerCase().includes(searchTerm.toLowerCase())
+        (c.classCode || '').toLowerCase().includes(searchTerm.toLowerCase()) || 
+        (c.subject || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (c.lecturer || '').toLowerCase().includes(searchTerm.toLowerCase())
     );
 
     return (
