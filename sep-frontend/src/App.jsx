@@ -2,13 +2,15 @@ import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 
 import Login from './pages/Login';
-import AdminDashboard from './pages/AdminDashboard'; // 🔥 CHỈNH LẠI: Trỏ đúng vào file AdminDashboard
-import AdminUsers from './pages/AdminUsers';         // 🔥 CHỈNH LẠI: Trỏ đúng vào file AdminUsers
+import AdminDashboard from './pages/AdminDashboard'; 
+import AdminUsers from './pages/AdminUsers';         
 import AdminSubjects from './pages/AdminSubjects';
 import AdminClassrooms from './pages/AdminClassrooms';
 import AdminPortal from './pages/AdminPortal';
 import StudentPortal from './pages/StudentPortal';
 import LecturerPortal from './pages/LecturerPortal';
+import AdminDepartments from './pages/AdminDepartments';
+import AdminThesis from './pages/AdminThesis';
 
 function App() {
   return (
@@ -26,6 +28,8 @@ function App() {
         <Route path="/admin/subjects" element={<AdminSubjects />} />
         <Route path="/admin/classrooms" element={<AdminClassrooms />} />
         <Route path="/admin/semesters" element={<AdminPortal />} />
+        <Route path="/admin/departments" element={<AdminDepartments />} />
+        <Route path="/admin/thesis" element={<AdminThesis />} />
         
         {/* ==========================================
             CÁC TRANG CỦA GIẢNG VIÊN VÀ SINH VIÊN
