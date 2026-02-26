@@ -1,343 +1,152 @@
 import React, { useEffect, useState } from 'react';
 import studentService from '../services/studentService';
-import userService from '../services/userService';
 import StudentLayout from '../components/StudentLayout';
-import { FaCheckCircle, FaTimesCircle, FaBan, FaRegIdCard, FaBook, FaListOl, FaUserCircle, FaChartBar, FaCalendarAlt } from 'react-icons/fa';
+import { FaArrowLeft, FaBullhorn, FaCheckCircle, FaExclamationCircle } from 'react-icons/fa';
+import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer } from 'recharts';
 
 export default function StudentPortal() {
     const [activeTab, setActiveTab] = useState('DASHBOARD');
+    const [classes, setClasses] = useState([]);
+    const [dashboardData, setDashboardData] = useState(null);
     
-    // Data States
-    const [classrooms, setClassrooms] = useState([]);
-    const [currentUserId, setCurrentUserId] = useState(null);
-    const [loading, setLoading] = useState(true);
-    const [portalData, setPortalData] = useState(null);
-    const [isEditingProfile, setIsEditingProfile] = useState(false);
-    const [profileForm, setProfileForm] = useState({
-        studentCode: '', gender: '', dateOfBirth: '', placeOfBirth: '', major: 'Công nghệ thông tin', batch: '2023'
-    });
-
-    // DUY NHẤT 1 HÀM fetchData ĐÃ ĐƯỢC GỘP CHUẨN CHỈ
-    const fetchData = async () => {
-        try {
-            // 1. Tải danh sách lớp học
-            const classData = await studentService.getAllClassrooms();
-            setClassrooms(classData);
-
-            // 2. Lấy thông tin cá nhân và bảng điểm
-            try {
-                const loggedInUsername = localStorage.getItem('username');
-                const users = await userService.getAllUsers();
-                const me = users.find(u => u.username === loggedInUsername);
-                
-                if (me) {
-                    setCurrentUserId(me.id);
-                    // Gọi API lấy Profile và Điểm
-                    const data = await studentService.getMyPortalData(me.id);
-                    setPortalData(data);
-                    
-                    // Nạp dữ liệu vào Form sửa
-                    setProfileForm({
-                        studentCode: data.profile.studentCode === 'Chưa cập nhật' ? '' : data.profile.studentCode,
-                        gender: data.profile.gender || 'Nam',
-                        dateOfBirth: data.profile.dateOfBirth === '01/01/2000' ? '' : data.profile.dateOfBirth,
-                        placeOfBirth: data.profile.placeOfBirth === 'Chưa cập nhật' ? '' : data.profile.placeOfBirth,
-                        major: data.profile.major || 'Công nghệ thông tin',
-                        batch: data.profile.batch || '2023'
-                    });
-                }
-            } catch (err) {
-                console.warn("Lỗi phân quyền khi lấy thông tin User", err);
-            }
-
-            setLoading(false);
-        } catch (error) {
-            console.error("Lỗi:", error);
-            setLoading(false);
-        }
-    };
+    const [selectedClass, setSelectedClass] = useState(null);
+    const [classSubTab, setClassSubTab] = useState('GRADES'); // 'GRADES', 'ANNOUNCEMENTS'
+    
+    const [grades, setGrades] = useState(null);
+    const [announcements, setAnnouncements] = useState([]);
 
     useEffect(() => {
-        // eslint-disable-next-line react-hooks/set-state-in-effect
-        fetchData();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        fetchStudentData();
     }, []);
 
-    // Logic Đăng ký & Hủy lớp học
-    const handleEnroll = async (classId) => {
-        if (!currentUserId) return alert("Chưa lấy được ID sinh viên!");
+    const fetchStudentData = async () => {
         try {
-            await studentService.enrollClass(classId, currentUserId);
-            alert("✅ Đăng ký thành công!");
-            fetchData();
-        } catch (error) { alert("❌ Lỗi: " + (error.response?.data || error.message)); }
-    };
-
-    const handleDrop = async (classId) => {
-        if (!window.confirm("Hủy đăng ký lớp này?")) return;
-        try {
-            await studentService.dropClass(classId, currentUserId);
-            alert("✅ Đã hủy!");
-            fetchData();
-        } catch (error) { alert("❌ Lỗi: " + error.message); }
-    };
-
-    // Logic Cập nhật Hồ sơ
-    const handleSaveProfile = async (e) => {
-        e.preventDefault();
-        try {
-            await studentService.updateProfile(currentUserId, profileForm);
-            alert("✅ Đã cập nhật hồ sơ thành công!");
-            setIsEditingProfile(false);
-            fetchData(); // Load lại dữ liệu mới nhất
-        } catch (error) {
-            alert("❌ Lỗi khi cập nhật: " + error.message);
+            const classData = await studentService.getMyClasses();
+            setClasses(classData);
+            
+            const dashData = await studentService.getDashboard();
+            setDashboardData(dashData);
+        } catch { 
+            console.error("Lỗi tải dữ liệu sinh viên"); 
         }
     };
 
-    // Tính toán dữ liệu an toàn
-    const safeClasses = classrooms.map(c => ({ ...c, enrolledStudentIds: c.enrolledStudentIds || [], credits: c.credits || 3 }));
-    const myClasses = safeClasses.filter(c => c.enrolledStudentIds.includes(currentUserId));
-    const totalCredits = myClasses.reduce((sum, c) => sum + c.credits, 0);
+    const handleSelectClass = async (cls) => {
+        setSelectedClass(cls);
+        setClassSubTab('GRADES');
+        try {
+            const gr = await studentService.getMyGrades(cls.classId);
+            setGrades(gr);
+            const ann = await studentService.getAnnouncements(cls.classId);
+            setAnnouncements(ann);
+        } catch { console.error("Lỗi tải chi tiết lớp"); }
+    };
 
     // ==========================================
-    // RENDER CÁC TAB CHỨC NĂNG
+    // RENDER: TAB TỔNG QUAN (DASHBOARD)
     // ==========================================
-
     const renderDashboard = () => {
-        if (!portalData) return <p>Đang tải thông tin cá nhân...</p>;
-        const profile = portalData.profile;
-        
-        // 🔥 LOGIC CHUẨN: Chỉ cộng tín chỉ của những môn có điểm ĐẠT
-        const earnedCredits = (portalData.grades || [])
-            .filter(g => g.status === 'Đạt')
-            .reduce((sum, g) => sum + g.credits, 0);
-
-        const totalRequired = 120; // Tổng tín chỉ yêu cầu của ngành
-        const percentage = (earnedCredits / totalRequired) * 360;
-
+        if (!dashboardData) return null;
         return (
-            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '25px' }}>
-                {/* Khối Profile giữ nguyên */}
-                <div style={{ backgroundColor: 'white', padding: '25px', borderRadius: '12px', boxShadow: '0 2px 10px rgba(0,0,0,0.05)' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '2px solid #006666', paddingBottom: '10px' }}>
-                        <h3 style={{ color: '#006666', margin: 0 }}><FaRegIdCard /> Thông tin sinh viên</h3>
-                        <button onClick={() => setIsEditingProfile(true)} style={{ backgroundColor: '#006666', color: 'white', border: 'none', padding: '5px 15px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>Sửa hồ sơ</button>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '30px', animation: 'fadeIn 0.5s' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                    <div style={{ backgroundColor: 'white', padding: '30px', borderRadius: '12px', textAlign: 'center', boxShadow: '0 2px 10px rgba(0,0,0,0.05)', borderBottom: '5px solid #006666' }}>
+                        <h4 style={{ color: '#666', margin: '0 0 10px 0' }}>Điểm Trung Bình (GPA)</h4>
+                        <h1 style={{ color: '#006666', margin: 0, fontSize: '48px' }}>{dashboardData.gpa}</h1>
+                        <p style={{ color: '#28a745', margin: '10px 0 0 0', fontWeight: 'bold' }}>Xếp loại: Khá</p>
                     </div>
-                    <div style={{ display: 'flex', gap: '30px', marginTop: '20px' }}>
-                        <div style={{ width: '120px', height: '160px', backgroundColor: '#e9ecef', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #ccc' }}>
-                            <FaUserCircle size={80} color="#adb5bd" />
-                        </div>
-                        <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', fontSize: '15px', color: '#444' }}>
-                            <p><strong>MSSV:</strong> <span style={{color: profile.studentCode === 'Chưa cập nhật' ? 'red' : 'black'}}>{profile.studentCode}</span></p>
-                            <p><strong>Khóa học:</strong> {profile.batch}</p>
-                            <p><strong>Họ tên:</strong> {profile.fullName}</p>
-                            <p><strong>Giới tính:</strong> {profile.gender}</p>
-                            <p><strong>Ngày sinh:</strong> {profile.dateOfBirth}</p>
-                            <p><strong>Bậc đào tạo:</strong> Đại học - CQ</p>
-                            <p><strong>Nơi sinh:</strong> {profile.placeOfBirth}</p>
-                            <p><strong>Chuyên ngành:</strong> {profile.major}</p>
-                        </div>
+                    <div style={{ backgroundColor: 'white', padding: '30px', borderRadius: '12px', textAlign: 'center', boxShadow: '0 2px 10px rgba(0,0,0,0.05)', borderBottom: '5px solid #ffc107' }}>
+                        <h4 style={{ color: '#666', margin: '0 0 10px 0' }}>Tín chỉ tích lũy</h4>
+                        <h1 style={{ color: '#ffc107', margin: 0, fontSize: '48px' }}>{dashboardData.credits}</h1>
+                        <p style={{ color: '#888', margin: '10px 0 0 0' }}>/ 120 tín chỉ yêu cầu</p>
                     </div>
                 </div>
 
-                {/* Khối Tiến độ học tập */}
-                <div style={{ backgroundColor: 'white', padding: '25px', borderRadius: '12px', boxShadow: '0 2px 10px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                    <h3 style={{ color: '#006666', width: '100%', borderBottom: '2px solid #006666', paddingBottom: '10px', marginTop: 0, textAlign: 'center' }}><FaChartBar /> Tiến độ học tập</h3>
-                    
-                    {/* Vòng tròn tính toán dựa trên số liệu THẬT */}
-                    <div style={{ marginTop: '20px', width: '160px', height: '160px', borderRadius: '50%', background: `conic-gradient(#0dcaf0 ${percentage}deg, #e9ecef 0deg)`, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: 'inset 0 0 10px rgba(0,0,0,0.1)' }}>
-                        <div style={{ width: '120px', height: '120px', backgroundColor: 'white', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', boxShadow: '0 2px 5px rgba(0,0,0,0.1)' }}>
-                            <span style={{ fontWeight: 'bold', fontSize: '22px', color: '#333' }}>{earnedCredits}/{totalRequired}</span>
-                            <span style={{ fontSize: '12px', color: '#666', fontWeight: 'bold' }}>Tín chỉ</span>
-                        </div>
+                <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '12px', boxShadow: '0 2px 10px rgba(0,0,0,0.05)' }}>
+                    <h3 style={{ textAlign: 'center', color: '#006666', margin: '0 0 20px 0' }}>Bản đồ Năng lực Học tập</h3>
+                    <div style={{ height: '350px' }}>
+                        <ResponsiveContainer width="100%" height="100%">
+                            <RadarChart cx="50%" cy="50%" outerRadius="80%" data={dashboardData.radarData}>
+                                <PolarGrid />
+                                <PolarAngleAxis dataKey="subject" />
+                                <PolarRadiusAxis angle={30} domain={[0, 100]} />
+                                <Radar name="Năng lực" dataKey="A" stroke="#006666" fill="#006666" fillOpacity={0.6} />
+                            </RadarChart>
+                        </ResponsiveContainer>
                     </div>
-                    <p style={{ marginTop: '20px', color: '#555', fontWeight: '500', fontSize: '14px', textAlign: 'center' }}>
-                        Dữ liệu dựa trên số tín chỉ tích lũy (Các môn đã có điểm & đạt)
-                    </p>
                 </div>
-
-                {/* MODAL CẬP NHẬT HỒ SƠ */}
-                {isEditingProfile && (
-                    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 9999 }}>
-                        <div style={{ backgroundColor: 'white', padding: '30px', borderRadius: '12px', width: '500px', boxShadow: '0 10px 30px rgba(0,0,0,0.2)' }}>
-                            <h3 style={{ marginTop: 0, color: '#006666' }}>Cập nhật Hồ sơ Sinh viên</h3>
-                            <form onSubmit={handleSaveProfile} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-                                <div style={{ display: 'flex', gap: '15px' }}>
-                                    <div style={{ flex: 1 }}>
-                                        <label style={{ fontWeight: 'bold', fontSize: '13px' }}>Mã số SV (MSSV)</label>
-                                        <input type="text" value={profileForm.studentCode} onChange={e => setProfileForm({...profileForm, studentCode: e.target.value})} required style={{ width: '100%', padding: '8px', marginTop: '5px', borderRadius: '4px', border: '1px solid #ccc' }} />
-                                    </div>
-                                    <div style={{ flex: 1 }}>
-                                        <label style={{ fontWeight: 'bold', fontSize: '13px' }}>Khóa học</label>
-                                        <input type="text" value={profileForm.batch} onChange={e => setProfileForm({...profileForm, batch: e.target.value})} required style={{ width: '100%', padding: '8px', marginTop: '5px', borderRadius: '4px', border: '1px solid #ccc' }} />
-                                    </div>
-                                </div>
-                                <div style={{ display: 'flex', gap: '15px' }}>
-                                    <div style={{ flex: 1 }}>
-                                        <label style={{ fontWeight: 'bold', fontSize: '13px' }}>Ngày sinh (DD/MM/YYYY)</label>
-                                        <input type="text" value={profileForm.dateOfBirth} onChange={e => setProfileForm({...profileForm, dateOfBirth: e.target.value})} placeholder="VD: 23/11/2005" required style={{ width: '100%', padding: '8px', marginTop: '5px', borderRadius: '4px', border: '1px solid #ccc' }} />
-                                    </div>
-                                    <div style={{ flex: 1 }}>
-                                        <label style={{ fontWeight: 'bold', fontSize: '13px' }}>Giới tính</label>
-                                        <select value={profileForm.gender} onChange={e => setProfileForm({...profileForm, gender: e.target.value})} style={{ width: '100%', padding: '8px', marginTop: '5px', borderRadius: '4px', border: '1px solid #ccc' }}>
-                                            <option value="Nam">Nam</option>
-                                            <option value="Nữ">Nữ</option>
-                                        </select>
-                                    </div>
-                                </div>
-                                <div>
-                                    <label style={{ fontWeight: 'bold', fontSize: '13px' }}>Nơi sinh</label>
-                                    <input type="text" value={profileForm.placeOfBirth} onChange={e => setProfileForm({...profileForm, placeOfBirth: e.target.value})} required style={{ width: '100%', padding: '8px', marginTop: '5px', borderRadius: '4px', border: '1px solid #ccc' }} />
-                                </div>
-                                <div>
-                                    <label style={{ fontWeight: 'bold', fontSize: '13px' }}>Chuyên ngành</label>
-                                    <input type="text" value={profileForm.major} onChange={e => setProfileForm({...profileForm, major: e.target.value})} required style={{ width: '100%', padding: '8px', marginTop: '5px', borderRadius: '4px', border: '1px solid #ccc' }} />
-                                </div>
-                                
-                                <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
-                                    <button type="submit" style={{ flex: 1, backgroundColor: '#006666', color: 'white', padding: '10px', border: 'none', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer' }}>Lưu thay đổi</button>
-                                    <button type="button" onClick={() => setIsEditingProfile(false)} style={{ flex: 1, backgroundColor: '#e9ecef', color: '#333', padding: '10px', border: 'none', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer' }}>Hủy bỏ</button>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-                )}
             </div>
         );
     };
 
-    const renderRegistration = () => (
-        <div style={{ backgroundColor: 'white', borderRadius: '12px', boxShadow: '0 2px 10px rgba(0,0,0,0.05)', overflow: 'hidden' }}>
-            <div style={{ padding: '20px', backgroundColor: '#f8f9fa', borderBottom: '1px solid #dee2e6', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <h3 style={{ margin: 0, color: '#006666' }}>Danh sách Lớp học phần đang mở</h3>
-                <span style={{ fontWeight: 'bold', color: '#d9363e' }}>Bạn đã đăng ký: {totalCredits} TC</span>
-            </div>
-            
-            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-                <thead>
-                    <tr style={{ backgroundColor: '#00796b', color: 'white' }}>
-                        <th style={{ padding: '15px' }}>Mã Lớp</th>
-                        <th style={{ padding: '15px' }}>Môn học</th>
-                        <th style={{ padding: '15px', textAlign: 'center' }}>TC</th>
-                        <th style={{ padding: '15px' }}>Giảng viên</th>
-                        <th style={{ padding: '15px', textAlign: 'center' }}>Sĩ số</th>
-                        <th style={{ padding: '15px', textAlign: 'center' }}>Trạng thái</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {safeClasses.map((cls) => {
-                        const isEnrolled = cls.enrolledStudentIds.includes(currentUserId);
-                        const isFull = cls.studentCount >= 10;
-                        return (
-                            <tr key={cls.id} style={{ borderBottom: '1px solid #eee', backgroundColor: isEnrolled ? '#e0f2f1' : 'white' }}>
-                                <td style={{ padding: '15px', fontWeight: 'bold', color: '#006666' }}>{cls.classCode}</td>
-                                <td style={{ padding: '15px', fontWeight: '500' }}>{cls.subject}</td>
-                                <td style={{ padding: '15px', textAlign: 'center' }}>{cls.credits}</td>
-                                <td style={{ padding: '15px', color: '#555' }}>{cls.lecturer}</td>
-                                <td style={{ padding: '15px', textAlign: 'center' }}>
-                                    <span style={{ backgroundColor: isFull ? '#f8d7da' : '#e2e3e5', padding: '4px 10px', borderRadius: '20px', fontSize: '13px', fontWeight: 'bold' }}>{cls.studentCount} / 10</span>
-                                </td>
-                                <td style={{ padding: '15px', textAlign: 'center' }}>
-                                    {isEnrolled ? (
-                                        <button onClick={() => handleDrop(cls.id)} style={{ backgroundColor: '#dc3545', color: 'white', border: 'none', padding: '8px 15px', borderRadius: '5px', cursor: 'pointer', fontWeight: 'bold' }}><FaTimesCircle /> Hủy</button>
-                                    ) : isFull ? (
-                                        <button disabled style={{ backgroundColor: '#e9ecef', color: '#6c757d', border: 'none', padding: '8px 15px', borderRadius: '5px', cursor: 'not-allowed', fontWeight: 'bold' }}><FaBan /> Đầy</button>
-                                    ) : (
-                                        <button onClick={() => handleEnroll(cls.id)} style={{ backgroundColor: '#006666', color: 'white', border: 'none', padding: '8px 15px', borderRadius: '5px', cursor: 'pointer', fontWeight: 'bold' }}><FaCheckCircle /> Đăng ký</button>
-                                    )}
-                                </td>
-                            </tr>
-                        );
-                    })}
-                </tbody>
-            </table>
-        </div>
-    );
+    // ==========================================
+    // RENDER: CHI TIẾT LỚP HỌC & ĐIỂM SỐ
+    // ==========================================
+    const renderClassDetail = () => {
+        if (!selectedClass) return null;
 
-    const renderTimetable = () => (
-        <div style={{ backgroundColor: 'white', padding: '25px', borderRadius: '12px', boxShadow: '0 2px 10px rgba(0,0,0,0.05)' }}>
-            <h3 style={{ color: '#006666', marginTop: 0 }}><FaCalendarAlt /> Thời khóa biểu tuần này</h3>
-            
-            {myClasses.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '40px', backgroundColor: '#f8f9fa', borderRadius: '8px', border: '1px dashed #ccc' }}>
-                    <p style={{ color: '#777', fontSize: '16px', margin: 0 }}>Bạn chưa đăng ký lớp học phần nào.</p>
-                </div>
-            ) : (
-                <div style={{ textAlign: 'center', padding: '40px', backgroundColor: '#f8f9fa', borderRadius: '8px', border: '1px dashed #ccc' }}>
-                    <FaCalendarAlt size={40} color="#adb5bd" style={{ marginBottom: '15px' }} />
-                    <h4 style={{ color: '#555', margin: '0 0 10px 0' }}>Hệ thống chưa cập nhật lịch học cụ thể</h4>
-                    <p style={{ color: '#777', margin: 0, fontSize: '14px' }}>
-                        Các lớp học phần bạn đã đăng ký hiện chưa có dữ liệu về thời gian (Thứ/Ca) và Phòng học từ Phòng Đào Tạo. Vui lòng theo dõi lại sau!
-                    </p>
-                    
-                    <div style={{ marginTop: '20px', textAlign: 'left', display: 'inline-block', backgroundColor: 'white', padding: '15px 25px', borderRadius: '8px', boxShadow: '0 2px 5px rgba(0,0,0,0.05)' }}>
-                        <h5 style={{ margin: '0 0 10px 0', color: '#006666' }}>Danh sách lớp chờ xếp lịch:</h5>
-                        <ul style={{ margin: 0, paddingLeft: '20px', color: '#444' }}>
-                            {myClasses.map(c => (
-                                <li key={c.id} style={{ marginBottom: '5px' }}>
-                                    <strong>{c.classCode}</strong> - {c.subject}
-                                </li>
-                            ))}
-                        </ul>
-                    </div>
-                </div>
-            )}
-        </div>
-    );
-
-    const renderGrades = () => {
-        if (!portalData) return <p>Đang tải thông tin...</p>;
-        const grades = portalData.grades || [];
+        let totalScore = null;
+        if (grades && grades.processScore !== null && grades.finalScore !== null) {
+            totalScore = (grades.processScore * 0.4 + grades.finalScore * 0.6).toFixed(1);
+        }
 
         return (
-            <div style={{ backgroundColor: 'white', padding: '25px', borderRadius: '12px', boxShadow: '0 2px 10px rgba(0,0,0,0.05)' }}>
-                <h3 style={{ color: '#006666', marginTop: 0 }}><FaListOl /> Bảng điểm học tập</h3>
-                
-                {grades.length === 0 ? (
-                    // 🌟 Giao diện khi CHƯA CÓ ĐIỂM
-                    <div style={{ textAlign: 'center', padding: '50px', backgroundColor: '#f8f9fa', borderRadius: '8px', border: '1px dashed #ccc', marginTop: '15px' }}>
-                        <FaListOl size={40} color="#adb5bd" style={{ marginBottom: '15px' }} />
-                        <h4 style={{ color: '#555', margin: '0 0 5px 0' }}>Chưa có dữ liệu điểm</h4>
-                        <p style={{ color: '#777', fontSize: '14px', margin: 0 }}>Hệ thống chưa ghi nhận kết quả học tập nào của bạn.</p>
+            <div style={{ backgroundColor: 'white', borderRadius: '12px', boxShadow: '0 2px 10px rgba(0,0,0,0.05)', padding: '25px', animation: 'fadeIn 0.3s' }}>
+                <button onClick={() => setSelectedClass(null)} style={{ background: 'none', border: 'none', color: '#006666', cursor: 'pointer', fontSize: '15px', display: 'flex', alignItems: 'center', gap: '5px', padding: 0, marginBottom: '20px', fontWeight: 'bold' }}>
+                    <FaArrowLeft /> Trở về danh sách lớp
+                </button>
+                <h2 style={{ margin: '0 0 5px 0', color: '#006666' }}>{selectedClass.subjectName}</h2>
+                <p style={{ color: '#666', margin: '0 0 20px 0' }}>Mã lớp: <strong>{selectedClass.classCode}</strong> | Giảng viên: <strong>{selectedClass.lecturerName}</strong></p>
+
+                <div style={{ display: 'flex', gap: '20px', borderBottom: '2px solid #eee', marginBottom: '20px' }}>
+                    <div onClick={() => setClassSubTab('GRADES')} style={{ padding: '10px 15px', cursor: 'pointer', fontWeight: 'bold', borderBottom: classSubTab === 'GRADES' ? '3px solid #006666' : '3px solid transparent', color: classSubTab === 'GRADES' ? '#006666' : '#666' }}>
+                        Bảng điểm của tôi
                     </div>
-                ) : (
-                    // 🌟 Giao diện khi ĐÃ CÓ ĐIỂM
-                    <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'center', marginTop: '15px' }}>
-                        <thead>
-                            <tr style={{ backgroundColor: '#00796b', color: 'white' }}>
-                                <th style={{ padding: '12px' }}>Mã HP</th>
-                                <th style={{ padding: '12px', textAlign: 'left' }}>Tên học phần</th>
-                                <th style={{ padding: '12px' }}>Tín chỉ</th>
-                                <th style={{ padding: '12px' }}>Học kỳ</th>
-                                <th style={{ padding: '12px' }}>Quá trình</th>
-                                <th style={{ padding: '12px' }}>Thi</th>
-                                <th style={{ padding: '12px' }}>Tổng kết</th>
-                                <th style={{ padding: '12px' }}>Điểm chữ</th>
-                                <th style={{ padding: '12px' }}>Đạt</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {grades.map((g, index) => (
-                                <tr key={index} style={{ borderBottom: '1px solid #eee' }}>
-                                    <td style={{ padding: '12px', fontWeight: 'bold', color: '#006666' }}>{g.subjectCode}</td>
-                                    <td style={{ padding: '12px', textAlign: 'left', fontWeight: '500' }}>{g.subjectName}</td>
-                                    <td>{g.credits}</td>
-                                    <td style={{ fontStyle: 'italic', fontSize: '13px', color: '#666' }}>{g.semester}</td>
-                                    <td>{g.processScore !== null ? g.processScore : '-'}</td>
-                                    <td>{g.finalScore !== null ? g.finalScore : '-'}</td>
-                                    <td style={{fontWeight: 'bold'}}>{g.totalScore !== null ? g.totalScore : '-'}</td>
-                                    <td style={{fontWeight: 'bold', color: g.letterGrade === 'F' ? '#dc3545' : '#28a745'}}>{g.letterGrade || '-'}</td>
-                                    <td>
-                                        {g.status === 'Đạt' ? (
-                                            <FaCheckCircle color="#28a745" title="Đạt" size={18} />
-                                        ) : (
-                                            <FaTimesCircle color="#dc3545" title="Học lại" size={18} />
-                                        )}
+                    <div onClick={() => setClassSubTab('ANNOUNCEMENTS')} style={{ padding: '10px 15px', cursor: 'pointer', fontWeight: 'bold', borderBottom: classSubTab === 'ANNOUNCEMENTS' ? '3px solid #ffc107' : '3px solid transparent', color: classSubTab === 'ANNOUNCEMENTS' ? '#ffc107' : '#666' }}>
+                        <FaBullhorn /> Thông báo lớp ({announcements.length})
+                    </div>
+                </div>
+
+                {classSubTab === 'GRADES' && (
+                    <div style={{ maxWidth: '700px' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', border: '1px solid #ddd' }}>
+                            <tbody>
+                                <tr style={{ borderBottom: '1px solid #ddd' }}>
+                                    <th style={{ padding: '15px', backgroundColor: '#f8f9fa', width: '60%' }}>Điểm Quá trình (40%)</th>
+                                    <td style={{ padding: '15px', fontSize: '18px', fontWeight: 'bold', textAlign: 'center', color: '#006666' }}>{grades?.processScore ?? '-'}</td>
+                                </tr>
+                                <tr style={{ borderBottom: '1px solid #ddd' }}>
+                                    <th style={{ padding: '15px', backgroundColor: '#f8f9fa' }}>Điểm Thi cuối kỳ (60%)</th>
+                                    <td style={{ padding: '15px', fontSize: '18px', fontWeight: 'bold', textAlign: 'center', color: '#006666' }}>{grades?.finalScore ?? '-'}</td>
+                                </tr>
+                                <tr style={{ backgroundColor: '#006666', color: 'white' }}>
+                                    <th style={{ padding: '15px', fontSize: '18px' }}>TỔNG KẾT HỌC PHẦN</th>
+                                    <td style={{ padding: '15px', fontSize: '24px', fontWeight: 'bold', textAlign: 'center', color: totalScore >= 4 ? '#ffc107' : (totalScore === null ? 'white' : '#ffc107') }}>
+                                        {totalScore ?? 'Chưa tổng kết'}
                                     </td>
                                 </tr>
-                            ))}
-                        </tbody>
-                    </table>
+                            </tbody>
+                        </table>
+                        {totalScore !== null && (
+                            <div style={{ marginTop: '20px', padding: '15px', borderRadius: '8px', backgroundColor: totalScore >= 4 ? '#d4edda' : '#f8d7da', color: totalScore >= 4 ? '#155724' : '#721c24', display: 'flex', alignItems: 'center', gap: '10px', fontWeight: 'bold' }}>
+                                {totalScore >= 4 ? <FaCheckCircle size={20} /> : <FaExclamationCircle size={20} />}
+                                {totalScore >= 4 ? 'Chúc mừng! Bạn đã đủ điểm qua môn này.' : 'Cảnh báo: Bạn chưa đủ điểm qua môn.'}
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {classSubTab === 'ANNOUNCEMENTS' && (
+                    <div>
+                        {announcements.length === 0 ? <p style={{ color: '#888' }}>Giảng viên chưa có thông báo nào.</p> : announcements.map(a => (
+                            <div key={a.id} style={{ backgroundColor: '#f8f9fa', border: '1px solid #eee', padding: '20px', borderRadius: '8px', marginBottom: '15px', borderLeft: '4px solid #ffc107' }}>
+                                <h3 style={{ margin: '0 0 5px 0', color: '#333' }}>{a.title}</h3>
+                                <span style={{ fontSize: '12px', color: '#888' }}>Đăng lúc: {new Date(a.createdAt).toLocaleString('vi-VN')}</span>
+                                <p style={{ margin: '15px 0 0 0', color: '#444', fontSize: '15px', whiteSpace: 'pre-wrap', lineHeight: '1.5' }}>{a.content}</p>
+                            </div>
+                        ))}
+                    </div>
                 )}
             </div>
         );
@@ -345,21 +154,36 @@ export default function StudentPortal() {
 
     return (
         <StudentLayout activeTab={activeTab} setActiveTab={setActiveTab}>
-            {loading ? <p style={{textAlign: 'center', marginTop: '50px'}}>Đang tải dữ liệu, vui lòng chờ...</p> : (
-                <div style={{ animation: 'fadeIn 0.5s' }}>
-                    {activeTab === 'DASHBOARD' && renderDashboard()}
-                    {activeTab === 'REGISTRATION' && renderRegistration()}
-                    {activeTab === 'TIMETABLE' && renderTimetable()}
-                    {activeTab === 'GRADES' && renderGrades()}
-                    {activeTab === 'CURRICULUM' && (
-                        <div style={{ textAlign: 'center', padding: '50px', backgroundColor: 'white', borderRadius: '12px' }}>
-                            <FaBook size={60} color="#ccc" />
-                            <h2 style={{ color: '#666' }}>Chương trình đào tạo</h2>
-                            <p>Tính năng đang được phát triển. Dữ liệu sẽ được cập nhật sớm.</p>
+            
+            {/* TAB TỔNG QUAN NĂNG LỰC */}
+            {activeTab === 'DASHBOARD' && renderDashboard()}
+            
+            {/* TAB KẾT QUẢ HỌC TẬP (Hiển thị danh sách lớp) */}
+            {activeTab === 'GRADES' && (selectedClass ? renderClassDetail() : 
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '20px', animation: 'fadeIn 0.5s' }}>
+                    {classes.length === 0 ? <p>Bạn chưa được đăng ký vào lớp học nào.</p> : classes.map(c => (
+                        <div key={c.classId} style={{ backgroundColor: 'white', padding: '20px', borderRadius: '12px', boxShadow: '0 2px 10px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', borderTop: '5px solid #006666' }}>
+                            <h3 style={{ margin: '0 0 5px 0', color: '#006666' }}>{c.subjectName}</h3>
+                            <span style={{ fontSize: '13px', color: '#888', marginBottom: '15px' }}>Mã lớp: {c.classCode}</span>
+                            <p style={{ margin: '0 0 20px 0', color: '#444', fontSize: '14px' }}>Giảng viên: <strong>{c.lecturerName}</strong></p>
+                            
+                            <button onClick={() => handleSelectClass(c)} style={{ marginTop: 'auto', backgroundColor: '#ffc107', color: '#333', border: 'none', padding: '10px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', width: '100%', transition: '0.2s' }}>
+                                Xem Điểm & Thông Báo
+                            </button>
                         </div>
-                    )}
+                    ))}
                 </div>
             )}
+
+            {/* CÁC TAB KHÁC (Chưa làm, hiển thị thông báo) */}
+            {(activeTab === 'REGISTRATION' || activeTab === 'TIMETABLE' || activeTab === 'CURRICULUM') && (
+                <div style={{ backgroundColor: 'white', padding: '40px', borderRadius: '12px', textAlign: 'center', color: '#666', boxShadow: '0 2px 10px rgba(0,0,0,0.05)' }}>
+                    <FaExclamationCircle size={50} color="#ffc107" style={{ marginBottom: '15px' }} />
+                    <h2>Tính năng đang phát triển</h2>
+                    <p>Hệ thống đang được nâng cấp. Vui lòng quay lại sau!</p>
+                </div>
+            )}
+
         </StudentLayout>
     );
 }
