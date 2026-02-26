@@ -67,6 +67,19 @@ const studentService = {
     enrollNewClass: async (classId) => {
         const response = await axiosClient.post(`/students/registration/enroll/${classId}`);
         return response.data;
+    },
+    // 🔥 CÁC HÀM COMBO 4: INFO, TIMETABLE, CURRICULUM
+    getTimetable: async () => {
+        const response = await axiosClient.get(`/students/info/timetable`);
+        return response.data;
+    },
+    getCurriculum: async () => {
+        const response = await axiosClient.get(`/students/info/curriculum`);
+        return response.data;
+    },
+    getProfile: async () => {
+        const response = await axiosClient.get(`/students/info/profile`);
+        return response.data;
     }
 };
 
