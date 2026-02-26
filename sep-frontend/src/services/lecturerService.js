@@ -53,6 +53,15 @@ const lecturerService = {
     gradeThesis: async (thesisId, data) => {
         const response = await axiosClient.put(`/lecturer/theses/${thesisId}/grade`, data);
         return response.data;
+    },
+    // 🔥 CÁC HÀM MỚI COMBO 3 (QR & ANALYTICS)
+    generateQrAttendance: async (classId) => {
+        const response = await axiosClient.post(`/lecturer/advanced/classes/${classId}/qr-attendance`);
+        return response.data;
+    },
+    getClassAnalytics: async (classId) => {
+        const response = await axiosClient.get(`/lecturer/advanced/classes/${classId}/analytics`);
+        return response.data;
     }
 };
 
