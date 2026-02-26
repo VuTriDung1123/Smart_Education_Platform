@@ -39,6 +39,20 @@ const studentService = {
     getDashboard: async () => {
         const response = await axiosClient.get(`/students/dashboard`);
         return response.data;
+    },
+
+    // 🔥 CÁC HÀM COMBO SINH VIÊN 2 (QR & NỘP BÀI)
+    getClassAssignments: async (classId) => {
+        const response = await axiosClient.get(`/students/actions/classes/${classId}/assignments`);
+        return response.data;
+    },
+    submitAssignment: async (assignmentId, fileUrl) => {
+        const response = await axiosClient.post(`/students/actions/assignments/${assignmentId}/submit`, { fileUrl });
+        return response.data;
+    },
+    submitAttendanceQR: async (qrData) => {
+        const response = await axiosClient.post(`/students/actions/attendance/scan`, { qrData });
+        return response.data;
     }
 };
 
