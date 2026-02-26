@@ -17,6 +17,7 @@ export default function AdminDashboard() {
     const [classStatusData, setClassStatusData] = useState([]);
 
     useEffect(() => {
+        // eslint-disable-next-line react-hooks/exhaustive-deps
         fetchDashboardData();
     }, []);
 
