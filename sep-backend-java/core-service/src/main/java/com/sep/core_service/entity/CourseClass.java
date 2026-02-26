@@ -30,4 +30,10 @@ public class CourseClass {
     private String academicYear; // Năm học: "2025-2026"
 
     private String status = "OPEN";
+
+    private Integer dayOfWeek; 
+    private Integer session; 
+    private String tiet; 
+    private String time; 
+    private String room;
 }
