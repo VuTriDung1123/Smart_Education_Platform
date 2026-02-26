@@ -10,7 +10,7 @@ import {
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer } from 'recharts';
 
 export default function StudentPortal() {
-    const [activeTab, setActiveTab] = useState('TIMETABLE'); // Đặt Timetable làm tab mặc định để test luôn
+    const [activeTab, setActiveTab] = useState('TIMETABLE');
     
     // States Core
     const [classes, setClasses] = useState([]);
@@ -29,6 +29,9 @@ export default function StudentPortal() {
     const [timetable, setTimetable] = useState([]);
     const [curriculum, setCurriculum] = useState([]);
     const [profile, setProfile] = useState(null);
+
+    // 🔥 STATE CHO LỊCH ĐỘNG (Bắt đầu với ngày hôm nay)
+    const [currentWeekDate, setCurrentWeekDate] = useState(new Date());
 
     useEffect(() => {
         //eslint-disable-next-line react-hooks/exhaustive-deps
@@ -54,20 +57,20 @@ export default function StudentPortal() {
             setAvailableClasses(await studentService.getAvailableClasses());
             setAiRecommendations(await studentService.getAiRecommendations());
         } catch (error) {
-            console.error("Lỗi khi tải dữ liệu đăng ký:", error);
+            console.error("Lỗi tải dữ liệu đăng ký học phần:", error);
         }
     };
 
     const fetchTimetableData = async () => {
-        try { setTimetable(await studentService.getTimetable()); } catch (error) { console.error("Lỗi khi tải thời khóa biểu:", error); }
+        try { setTimetable(await studentService.getTimetable()); } catch (error) { console.error("Lỗi tải thời khóa biểu:", error); }
     };
 
     const fetchCurriculumData = async () => {
-        try { setCurriculum(await studentService.getCurriculum()); } catch (error) { console.error("Lỗi khi tải chương trình khung:", error); }
+        try { setCurriculum(await studentService.getCurriculum()); } catch (error) { console.error("Lỗi tải chương trình khung:", error); }
     };
 
     const fetchProfileData = async () => {
-        try { setProfile(await studentService.getProfile()); } catch (error) { console.error("Lỗi khi tải hồ sơ:", error); }
+        try { setProfile(await studentService.getProfile()); } catch (error) { console.error("Lỗi tải hồ sơ cá nhân:", error); }
     };
 
     const handleSelectClass = async (cls) => {
@@ -77,13 +80,15 @@ export default function StudentPortal() {
             setGrades(await studentService.getMyGrades(cls.classId));
             setAnnouncements(await studentService.getAnnouncements(cls.classId));
             setAssignments(await studentService.getClassAssignments(cls.classId));
-        } catch (error) { console.error("Lỗi khi tải dữ liệu lớp:", error); }
+        } catch (error) {
+            console.error("Lỗi khi chọn lớp:", error);
+        }
     };
 
     const handleScanQR = async (e) => {
         e.preventDefault();
         if (!qrCodeData) return alert("Vui lòng nhập dữ liệu mã QR!");
-        try { alert(await studentService.submitAttendanceQR(qrCodeData)); setQrCodeData(''); } catch { alert("❌ Lỗi QR!"); }
+        try { alert(await studentService.submitAttendanceQR(qrCodeData)); setQrCodeData(''); } catch (error) { alert("❌ Lỗi QR!: " + error.message); }
     };
 
     const handleSubmitAssignment = async (assignmentId) => {
@@ -96,20 +101,85 @@ export default function StudentPortal() {
         try { alert(await studentService.enrollNewClass(classId)); fetchInitialData(); } catch (error) { alert("❌ Lỗi đăng ký!: " + error.message); }
     };
 
+
     // ==========================================
-    // RENDER: THỜI KHÓA BIỂU (BẢN CLONE CHUẨN UTH)
+    // LOGIC TÍNH TOÁN NGÀY THÁNG CHO BẢNG LỊCH ĐỘNG
+    // ==========================================
+    const getMonday = (d) => {
+        const date = new Date(d);
+        const day = date.getDay() || 7; // Đổi CN (0) thành 7
+        if (day !== 1) date.setHours(-24 * (day - 1)); // Lùi về Thứ 2
+        date.setHours(0, 0, 0, 0);
+        return date;
+    };
+
+    const formatDateToDisplay = (date) => {
+        const d = date.getDate().toString().padStart(2, '0');
+        const m = (date.getMonth() + 1).toString().padStart(2, '0');
+        const y = date.getFullYear();
+        return `${d}/${m}/${y}`;
+    };
+
+    const formatInputDate = (date) => {
+        const d = date.getDate().toString().padStart(2, '0');
+        const m = (date.getMonth() + 1).toString().padStart(2, '0');
+        const y = date.getFullYear();
+        return `${y}-${m}-${d}`; // Format YYYY-MM-DD cho input type="date"
+    };
+
+    // Sinh ra mảng 7 ngày của tuần hiện tại
+    const generateWeekDays = (baseDate) => {
+        const monday = getMonday(baseDate);
+        const week = [];
+        const dayLabels = ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'Chủ nhật'];
+        for (let i = 0; i < 7; i++) {
+            const current = new Date(monday);
+            current.setDate(monday.getDate() + i);
+            week.push({ d: i + 2, label: dayLabels[i], date: formatDateToDisplay(current) }); // d: 2 -> 8
+        }
+        return week;
+    };
+
+    // Các hàm chuyển đổi tuần
+    const goToPrevWeek = () => {
+        const newDate = new Date(currentWeekDate);
+        newDate.setDate(newDate.getDate() - 7);
+        setCurrentWeekDate(newDate);
+    };
+
+    const goToNextWeek = () => {
+        const newDate = new Date(currentWeekDate);
+        newDate.setDate(newDate.getDate() + 7);
+        setCurrentWeekDate(newDate);
+    };
+
+    const goToToday = () => {
+        setCurrentWeekDate(new Date());
+    };
+
+    const handleDateInputChange = (e) => {
+        if (e.target.value) {
+            setCurrentWeekDate(new Date(e.target.value));
+        }
+    };
+
+
+    // ==========================================
+    // RENDER: THỜI KHÓA BIỂU ĐỘNG (BẢN CLONE CHUẨN UTH)
     // ==========================================
     const renderTimetable = () => {
-        // Hàm tìm môn học theo ngày và ca
+        const days = generateWeekDays(currentWeekDate);
+
+        // Hàm tìm môn học theo thứ và ca học
         const getClass = (day, session) => timetable.find(t => t.dayOfWeek === day && t.session === session);
 
         // Render từng ô lưới
         const renderCell = (day, session) => {
             const cls = getClass(day, session);
-            if (!cls) return <td style={{ border: '1px solid #dee2e6', backgroundColor: 'white', padding: '5px' }}></td>;
+            if (!cls) return <td key={`${day}-${session}`} style={{ border: '1px solid #dee2e6', backgroundColor: 'white', padding: '5px' }}></td>;
 
             return (
-                <td style={{ border: '1px solid #dee2e6', backgroundColor: 'white', padding: '5px', verticalAlign: 'top' }}>
+                <td key={`${day}-${session}`} style={{ border: '1px solid #dee2e6', backgroundColor: 'white', padding: '5px', verticalAlign: 'top' }}>
                     <div style={{ backgroundColor: '#eef2ff', borderRadius: '6px', padding: '10px', height: '100%', minHeight: '100px', display: 'flex', flexDirection: 'column', gap: '5px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
                         <div style={{ color: '#0056b3', fontWeight: 'bold', fontSize: '13px', lineHeight: '1.4' }}>{cls.subject}</div>
                         <div style={{ color: '#333', fontSize: '12px' }}>{cls.code}</div>
@@ -122,24 +192,22 @@ export default function StudentPortal() {
             );
         };
 
-        const days = [
-            { d: 2, label: 'Thứ 2', date: '02/03/2026' }, { d: 3, label: 'Thứ 3', date: '03/03/2026' }, 
-            { d: 4, label: 'Thứ 4', date: '04/03/2026' }, { d: 5, label: 'Thứ 5', date: '05/03/2026' }, 
-            { d: 6, label: 'Thứ 6', date: '06/03/2026' }, { d: 7, label: 'Thứ 7', date: '07/03/2026' }, 
-            { d: 8, label: 'Chủ nhật', date: '08/03/2026' }
-        ];
-
         return (
             <div style={{ animation: 'fadeIn 0.5s', backgroundColor: '#f0f2f5', minHeight: '100%' }}>
-                {/* TOOLBAR */}
+                {/* TOOLBAR ĐIỀU HƯỚNG */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '15px' }}>
-                    <div style={{ backgroundColor: 'white', border: '1px solid #008080', borderRadius: '4px', padding: '8px 15px', display: 'flex', alignItems: 'center', gap: '10px', fontWeight: 'bold', color: '#333' }}>
-                        03/05/2026 <FaCalendarAlt color="#666" />
+                    <div>
+                        <input 
+                            type="date" 
+                            value={formatInputDate(currentWeekDate)} 
+                            onChange={handleDateInputChange}
+                            style={{ padding: '8px 15px', borderRadius: '4px', border: '1px solid #008080', fontWeight: 'bold', color: '#333', outline: 'none', cursor: 'pointer', fontSize: '14px' }}
+                        />
                     </div>
                     <div style={{ display: 'flex', gap: '10px' }}>
-                        <button style={{ backgroundColor: '#008080', color: 'white', border: 'none', borderRadius: '4px', padding: '8px 15px', cursor: 'pointer' }}><FaChevronLeft /></button>
-                        <button style={{ backgroundColor: '#008080', color: 'white', border: 'none', borderRadius: '4px', padding: '8px 20px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px' }}><FaCalendarDay /> HIỆN TẠI</button>
-                        <button style={{ backgroundColor: '#008080', color: 'white', border: 'none', borderRadius: '4px', padding: '8px 15px', cursor: 'pointer' }}><FaChevronRight /></button>
+                        <button onClick={goToPrevWeek} style={{ backgroundColor: '#008080', color: 'white', border: 'none', borderRadius: '4px', padding: '8px 15px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}><FaChevronLeft /></button>
+                        <button onClick={goToToday} style={{ backgroundColor: '#008080', color: 'white', border: 'none', borderRadius: '4px', padding: '8px 20px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px' }}><FaCalendarDay /> HIỆN TẠI</button>
+                        <button onClick={goToNextWeek} style={{ backgroundColor: '#008080', color: 'white', border: 'none', borderRadius: '4px', padding: '8px 15px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}><FaChevronRight /></button>
                     </div>
                 </div>
 
