@@ -11,6 +11,8 @@ import StudentPortal from './pages/StudentPortal';
 import LecturerPortal from './pages/LecturerPortal';
 import AdminDepartments from './pages/AdminDepartments';
 import AdminThesis from './pages/AdminThesis';
+import AdminSurveys from './pages/AdminSurveys';
+import AdminSystem from './pages/AdminSystem';
 
 function App() {
   return (
@@ -30,6 +32,8 @@ function App() {
         <Route path="/admin/semesters" element={<AdminPortal />} />
         <Route path="/admin/departments" element={<AdminDepartments />} />
         <Route path="/admin/thesis" element={<AdminThesis />} />
+        <Route path="/admin/surveys" element={<AdminSurveys />} />
+        <Route path="/admin/system" element={<AdminSystem />} />
         
         {/* ==========================================
             CÁC TRANG CỦA GIẢNG VIÊN VÀ SINH VIÊN

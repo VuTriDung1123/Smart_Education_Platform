@@ -1,5 +1,7 @@
 import React from 'react';
-import { FaUserShield, FaSignOutAlt, FaCalendarCheck, FaBookOpen, FaUsers, FaChartPie, FaChalkboard,FaGraduationCap, FaBuilding } from 'react-icons/fa';
+import { FaUserShield, FaSignOutAlt, FaCalendarCheck, FaBookOpen, 
+    FaUsers, FaChartPie, FaChalkboard,FaGraduationCap, 
+    FaBuilding, FaClipboardList, FaCogs } from 'react-icons/fa';
 import { useNavigate, useLocation } from 'react-router-dom';
 
 export default function AdminLayout({ children }) {
@@ -18,11 +20,13 @@ export default function AdminLayout({ children }) {
     const menuItems = [
         { path: '/admin', label: 'Dashboard & Thống kê', icon: <FaChartPie /> },
         { path: '/admin/users', label: 'Quản lý Người dùng', icon: <FaUsers /> },
-        { path: '/admin/departments', label: 'Quản lý Khoa', icon: <FaBuilding /> }, // MỚI
+        { path: '/admin/departments', label: 'Quản lý Khoa', icon: <FaBuilding /> },
         { path: '/admin/semesters', label: 'Quản lý Học kỳ', icon: <FaCalendarCheck /> },
         { path: '/admin/subjects', label: 'Quản lý Môn học', icon: <FaBookOpen /> },
         { path: '/admin/classrooms', label: 'Quản lý Lớp học', icon: <FaChalkboard /> },
-        { path: '/admin/thesis', label: 'Quản lý Đồ án', icon: <FaGraduationCap /> }, // MỚI
+        { path: '/admin/thesis', label: 'Quản lý Đồ án', icon: <FaGraduationCap /> },
+        { path: '/admin/surveys', label: 'Quản lý Khảo sát', icon: <FaClipboardList /> },
+        { path: '/admin/system', label: 'Cấu hình Hệ thống', icon: <FaCogs /> },
     ];
 
     return (
