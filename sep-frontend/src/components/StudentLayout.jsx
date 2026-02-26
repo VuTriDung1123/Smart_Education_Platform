@@ -12,7 +12,8 @@ export default function StudentLayout({ children, activeTab, setActiveTab }) {
     };
 
     const menuItems = [
-        { id: 'DASHBOARD', name: 'Tổng quan', icon: <FaUserCircle size={18} /> },
+        { id: 'PROFILE', name: 'Hồ sơ cá nhân', icon: <FaUserCircle size={18} /> },
+        { id: 'DASHBOARD', name: 'Tổng quan (Dashboard)', icon: <FaChartBar size={18} /> },
         { id: 'REGISTRATION', name: 'Đăng ký học phần', icon: <FaBookOpen size={18} /> },
         { id: 'TIMETABLE', name: 'Lịch học trong tuần', icon: <FaCalendarAlt size={18} /> },
         { id: 'GRADES', name: 'Kết quả học tập', icon: <FaChartBar size={18} /> },
