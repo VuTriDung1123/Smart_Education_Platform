@@ -11,6 +11,8 @@ import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -31,6 +33,7 @@ import com.sep.core_service.repository.EnrollmentRepository;
 import com.sep.core_service.repository.GradeComponentRepository;
 import com.sep.core_service.repository.GradeScoreRepository;
 import com.sep.core_service.repository.StudentRepository;
+import com.sep.core_service.repository.UserRepository; // Thêm dòng này
 
 @RestController
 @RequestMapping("/api/lecturer")
@@ -42,11 +45,19 @@ public class LecturerController {
     @Autowired private EnrollmentRepository enrollmentRepository;
     @Autowired private CourseClassRepository courseClassRepository;
     @Autowired private StudentRepository studentRepository;
+    @Autowired private UserRepository userRepository; // Thêm dòng này
 
-    // 1. LẤY DANH SÁCH LỚP HỌC CỦA GIẢNG VIÊN ĐÓ
-    @GetMapping("/{lecturerId}/classes")
-    public ResponseEntity<?> getClasses(@PathVariable UUID lecturerId) {
-        List<Map<String, Object>> result = classroomRepository.findByLecturerId(lecturerId).stream().map(c -> {
+    // ==========================================
+    // 1. LẤY DANH SÁCH LỚP HỌC (Sử dụng PathVariable)
+    // ==========================================
+    @GetMapping("/{lecturerId}/my-classes") // Đổi endpoint
+    public ResponseEntity<?> getMyClasses(@PathVariable UUID lecturerId) {
+        
+        // Không dùng SecurityContextHolder nữa, lấy trực tiếp từ DB
+        User currentLecturer = userRepository.findById(lecturerId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy Giảng viên"));
+
+        List<Map<String, Object>> result = classroomRepository.findByLecturerId(currentLecturer.getId()).stream().map(c -> {
             Map<String, Object> map = new HashMap<>();
             map.put("classId", c.getId());
             map.put("classCode", c.getClassCode());
@@ -54,10 +65,13 @@ public class LecturerController {
             map.put("studentCount", c.getStudents() != null ? c.getStudents().size() : 0);
             return map;
         }).collect(Collectors.toList());
+        
         return ResponseEntity.ok(result);
     }
 
-    // 2. LẤY DANH SÁCH SINH VIÊN & ĐIỂM SỐ TRONG 1 LỚP CỤ THỂ
+    // ==========================================
+    // 2. LẤY DANH SÁCH SINH VIÊN & ĐIỂM
+    // ==========================================
     @GetMapping("/classes/{classId}/students")
     public ResponseEntity<?> getStudentsInClass(@PathVariable UUID classId) {
         Classroom classroom = classroomRepository.findById(classId)
@@ -75,7 +89,6 @@ public class LecturerController {
                 Double processScore = null;
                 Double finalScore = null;
 
-                // Lọc điểm của sinh viên này trong môn học này
                 List<Enrollment> enrollments = enrollmentRepository.findByStudent_User_Id(user.getId());
                 Optional<Enrollment> currentEnrollment = enrollments.stream()
                         .filter(e -> e.getCourseClass().getSubject().getId().equals(classroom.getSubject().getId()))
@@ -100,21 +113,21 @@ public class LecturerController {
         return ResponseEntity.ok(studentsData);
     }
 
-    // 3. API CHẤM ĐIỂM (LƯU HOẶC CẬP NHẬT ĐIỂM)
+    // ==========================================
+    // 3. API CHẤM ĐIỂM
+    // ==========================================
     @PostMapping("/classes/{classId}/students/{studentId}/grades")
     public ResponseEntity<?> saveGrades(@PathVariable UUID classId, @PathVariable UUID studentId, @RequestBody Map<String, Double> payload) {
         Classroom classroom = classroomRepository.findById(classId).orElseThrow();
         User user = classroom.getStudents().stream().filter(u -> u.getId().equals(studentId)).findFirst()
                 .orElseThrow(() -> new RuntimeException("Sinh viên không thuộc lớp này"));
 
-        // 3.1. Đảm bảo sinh viên có trong bảng Student
         Student student = studentRepository.findById(studentId).orElseGet(() -> {
             Student s = new Student(); s.setUser(user); 
             s.setStudentCode(user.getStudentCode()); s.setEnrollmentYear(2023); 
             return studentRepository.save(s);
         });
 
-        // 3.2. Đảm bảo có CourseClass đồng bộ với lớp học phần
         CourseClass courseClass = courseClassRepository.findAll().stream()
                 .filter(cc -> cc.getSubject().getId().equals(classroom.getSubject().getId()))
                 .findFirst()
@@ -125,7 +138,6 @@ public class LecturerController {
                     return courseClassRepository.save(cc);
                 });
 
-        // 3.3. Đảm bảo có Enrollment (Đăng ký môn)
         Enrollment enrollment = enrollmentRepository.findByStudent_User_Id(studentId).stream()
                 .filter(e -> e.getCourseClass().getId().equals(courseClass.getId()))
                 .findFirst()
@@ -135,7 +147,6 @@ public class LecturerController {
                     return enrollmentRepository.save(e);
                 });
 
-        // 3.4. Lấy Cột Điểm Trọng số
         GradeComponent processComp = componentRepository.findAll().stream().filter(c -> c.getName().contains("QUÁ TRÌNH")).findFirst().orElseGet(() -> {
             GradeComponent gc = new GradeComponent(); gc.setName("ĐIỂM QUÁ TRÌNH"); gc.setWeight(0.4); return componentRepository.save(gc);
         });
@@ -143,7 +154,6 @@ public class LecturerController {
             GradeComponent gc = new GradeComponent(); gc.setName("ĐIỂM THI CUỐI KỲ"); gc.setWeight(0.6); return componentRepository.save(gc);
         });
 
-        // 3.5. Lưu điểm vào DB
         saveOrUpdateGrade(enrollment, processComp, payload.get("processScore"));
         saveOrUpdateGrade(enrollment, finalComp, payload.get("finalScore"));
 
