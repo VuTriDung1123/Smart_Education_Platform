@@ -4,84 +4,72 @@ import userService from '../services/userService';
 import LecturerLayout from '../components/LecturerLayout';
 import { 
     FaSave, FaArrowLeft, FaEdit, FaFileExcel, FaFileExport, 
-    FaLock, FaBullhorn, FaPaperPlane, FaTasks, FaGraduationCap, FaCheckCircle 
+    FaLock, FaBullhorn, FaPaperPlane, FaTasks, FaGraduationCap, 
+    FaCheckCircle, FaQrcode, FaChartLine, FaExclamationTriangle 
 } from 'react-icons/fa';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
 
 export default function LecturerPortal() {
     const [activeTab, setActiveTab] = useState('MY_CLASSES');
     const [currentUserId, setCurrentUserId] = useState(null);
     const [classes, setClasses] = useState([]);
     
-    // State chi tiết lớp
     const [selectedClass, setSelectedClass] = useState(null);
-    const [classSubTab, setClassSubTab] = useState('GRADES'); // 'GRADES', 'ANNOUNCEMENTS', 'ASSIGNMENTS'
+    const [classSubTab, setClassSubTab] = useState('GRADES'); 
     const [isGradesLocked, setIsGradesLocked] = useState(false);
 
-    // State Bảng điểm
     const [students, setStudents] = useState([]);
     const [editGrades, setEditGrades] = useState({});
     const fileInputRef = useRef(null);
-
-    // State Thông báo
+    
     const [announcements, setAnnouncements] = useState([]);
     const [newAnnouncement, setNewAnnouncement] = useState({ title: '', content: '' });
-
-    // State Bài tập & Khóa luận (Combo 2)
+    
     const [assignments, setAssignments] = useState([]);
     const [newAssignment, setNewAssignment] = useState({ title: '', description: '', deadline: '' });
+    
     const [theses, setTheses] = useState([]);
+    const [qrSession, setQrSession] = useState(null);
+    const [analytics, setAnalytics] = useState(null);
 
     const fetchLecturerData = async () => {
         try {
             const loggedInUsername = localStorage.getItem('username');
-            console.log("👉 Đang tìm ID cho username:", loggedInUsername);
-            
             const users = await userService.getAllUsers(); 
             const me = users.find(u => u.username === loggedInUsername);
             
             if (me) {
-                console.log("✅ Tìm thấy ID giảng viên:", me.id);
                 setCurrentUserId(me.id); 
-                
-                // Gọi API lấy danh sách lớp học
                 const classData = await lecturerService.getMyClasses(me.id);
-                console.log("✅ Danh sách lớp tải về:", classData);
                 setClasses(classData);
-
-                // Gọi API lấy danh sách Đồ án hướng dẫn
-                try {
+                try { 
                     const thesesData = await lecturerService.getMyTheses(me.id);
-                    setTheses(thesesData);
-                } catch (error) {
-                    console.log("Chưa có đồ án hoặc lỗi load đồ án:", error);
+                    setTheses(thesesData); 
+                } catch {
+                    console.log("Lecturer currently has no theses.");
                 }
-            } else {
-                console.error("❌ Không tìm thấy user trong danh sách!");
-                alert("Không tìm thấy tài khoản của bạn trong hệ thống!");
             }
-        } catch (error) { 
-            console.error("❌ Lỗi API ở Giảng Viên:", error); 
-            alert("Lỗi tải lớp học: " + error.message);
+        } catch { 
+            alert("Lỗi tải thông tin Giảng viên hoặc Lớp học."); 
         }
     };
 
     useEffect(() => {
-        // eslint-disable-next-line react-hooks/exhaustive-deps
         fetchLecturerData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     const handleSelectClass = async (cls) => {
         setSelectedClass(cls);
-        setClassSubTab('GRADES'); // Mặc định vào tab bảng điểm
+        setClassSubTab('GRADES');
         setIsGradesLocked(false); 
+        setQrSession(null);
         fetchStudents(cls.classId);
         fetchAnnouncements(cls.classId);
         fetchAssignments(cls.classId);
+        fetchAnalytics(cls.classId);
     };
 
-    // ==========================================
-    // DATA FETCHERS
-    // ==========================================
     const fetchStudents = async (classId) => {
         try {
             const studentData = await lecturerService.getStudentsInClass(classId);
@@ -92,29 +80,35 @@ export default function LecturerPortal() {
                 initialEdits[`${s.studentId}_final`] = s.finalScore !== null ? s.finalScore : '';
             });
             setEditGrades(initialEdits);
-        } catch (error) { console.error("Lỗi:", error); }
+        } catch { console.error("Error fetching students"); }
+    };
+    
+    const fetchAnnouncements = async (classId) => { 
+        try { 
+            const data = await lecturerService.getAnnouncements(classId);
+            setAnnouncements(data); 
+        } catch { console.error("Error fetching announcements"); } 
+    };
+    
+    const fetchAssignments = async (classId) => { 
+        try { 
+            const data = await lecturerService.getAssignments(classId);
+            setAssignments(data); 
+        } catch { console.error("Error fetching assignments"); } 
+    };
+    
+    const fetchAnalytics = async (classId) => { 
+        try { 
+            const data = await lecturerService.getClassAnalytics(classId);
+            setAnalytics(data); 
+        } catch { console.error("Error fetching analytics"); } 
     };
 
-    const fetchAnnouncements = async (classId) => {
-        try {
-            setAnnouncements(await lecturerService.getAnnouncements(classId));
-        } catch (error) { console.error("Lỗi:", error); }
-    };
-
-    const fetchAssignments = async (classId) => {
-        try {
-            setAssignments(await lecturerService.getAssignments(classId));
-        } catch (error) { console.error("Lỗi:", error); }
-    };
-
-    // ==========================================
-    // ACTION: BẢNG ĐIỂM
-    // ==========================================
     const handleGradeChange = (studentId, type, value) => {
         if (isGradesLocked) return;
         setEditGrades(prev => ({ ...prev, [`${studentId}_${type}`]: value }));
     };
-
+    
     const handleSaveGrades = async () => {
         if (isGradesLocked) return alert("Bảng điểm đã bị khóa!");
         try {
@@ -130,82 +124,63 @@ export default function LecturerPortal() {
             }
             alert("✅ Đã lưu điểm thành công!");
             fetchStudents(selectedClass.classId);
-        } catch (error) { alert("❌ Có lỗi xảy ra khi lưu điểm: " + error.message); }
+        } catch { alert("❌ Có lỗi xảy ra khi lưu điểm!"); }
     };
-
+    
     const handleLockGrades = async () => {
-        if (window.confirm("⚠️ Sau khi khóa, bạn sẽ KHÔNG THỂ sửa điểm nữa. Xác nhận khóa?")) {
-            try {
-                await lecturerService.lockGrades(selectedClass.classId);
-                setIsGradesLocked(true);
-                alert("✅ Đã khóa bảng điểm!");
-            } catch (error) { alert("Lỗi khóa điểm: " + error.message); }
+        if (window.confirm("⚠️ Khóa điểm?")) {
+            try { 
+                await lecturerService.lockGrades(selectedClass.classId); 
+                setIsGradesLocked(true); 
+                alert("Đã khóa!"); 
+            } catch { alert("Lỗi khi khóa điểm"); }
         }
     };
-
+    
     const handleImportExcel = async (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-        try {
-            const msg = await lecturerService.importGradesExcel(selectedClass.classId, file);
-            alert(msg);
-            fetchStudents(selectedClass.classId);
-        } catch (error) { alert("❌ Lỗi Import: " + error.message); }
+        if (!e.target.files[0]) return;
+        try { 
+            await lecturerService.importGradesExcel(selectedClass.classId, e.target.files[0]); 
+            fetchStudents(selectedClass.classId); 
+        } catch { alert("Lỗi khi import điểm"); }
     };
+    
+    const handleExportExcel = () => window.open(`http://localhost:8080/api/lecturer/actions/classes/${selectedClass.classId}/export-grades`);
 
-    const handleExportExcel = () => {
-        window.open(`http://localhost:8080/api/lecturer/actions/classes/${selectedClass.classId}/export-grades`);
-    };
-
-    // ==========================================
-    // ACTION: THÔNG BÁO & BÀI TẬP & ĐỒ ÁN
-    // ==========================================
     const handleSendAnnouncement = async (e) => {
         e.preventDefault();
-        try {
-            await lecturerService.createAnnouncement(selectedClass.classId, currentUserId, newAnnouncement);
-            setNewAnnouncement({ title: '', content: '' });
-            fetchAnnouncements(selectedClass.classId);
-            alert("✅ Đã gửi thông báo cho lớp!");
-        } catch (error) { alert("❌ Lỗi gửi thông báo: " + error.message); }
+        try { 
+            await lecturerService.createAnnouncement(selectedClass.classId, currentUserId, newAnnouncement); 
+            setNewAnnouncement({ title: '', content: '' }); 
+            fetchAnnouncements(selectedClass.classId); 
+        } catch { alert("Lỗi gửi thông báo"); }
     };
-
+    
     const handleCreateAssignment = async (e) => {
         e.preventDefault();
-        try {
-            await lecturerService.createAssignment(selectedClass.classId, newAssignment);
-            setNewAssignment({ title: '', description: '', deadline: '' });
-            fetchAssignments(selectedClass.classId);
-            alert("✅ Đã giao bài tập mới thành công!");
-        } catch (error) { alert("❌ Lỗi giao bài tập: " + error.message); }
+        try { 
+            await lecturerService.createAssignment(selectedClass.classId, newAssignment); 
+            setNewAssignment({ title: '', description: '', deadline: '' }); 
+            fetchAssignments(selectedClass.classId); 
+        } catch { alert("Lỗi giao bài tập"); }
     };
-
+    
     const handleGradeThesis = async (thesisId) => {
-        const score = prompt("Nhập điểm đánh giá (0-10) cho Đồ án này:");
-        if (score) {
-            try {
-                await lecturerService.gradeThesis(thesisId, { score });
-                alert("✅ Đã cập nhật điểm đồ án!");
-                fetchLecturerData(); // Load lại danh sách
-            } catch (error) { alert("Lỗi chấm điểm: " + error.message); }
+        const score = prompt("Nhập điểm đánh giá (0-10):");
+        if (score) { 
+            try { 
+                await lecturerService.gradeThesis(thesisId, { score }); 
+                fetchLecturerData(); 
+            } catch { alert("Lỗi cập nhật điểm đồ án"); } 
         }
     };
 
-    // ==========================================
-    // RENDERS
-    // ==========================================
-    const renderDashboard = () => (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '20px' }}>
-            <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '12px', borderLeft: '5px solid #1A237E', boxShadow: '0 2px 10px rgba(0,0,0,0.05)' }}>
-                <h4 style={{ color: '#666', margin: '0 0 10px 0' }}>Tổng số lớp phụ trách</h4>
-                <h2 style={{ color: '#1A237E', margin: 0, fontSize: '32px' }}>{classes.length}</h2>
-            </div>
-            <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '12px', borderLeft: '5px solid #FF6D00', boxShadow: '0 2px 10px rgba(0,0,0,0.05)' }}>
-                <h4 style={{ color: '#666', margin: '0 0 10px 0' }}>Đồ án đang Hướng dẫn</h4>
-                <h2 style={{ color: '#FF6D00', margin: 0, fontSize: '32px' }}>{theses.length}</h2>
-            </div>
-        </div>
-    );
+    const handleGenerateQR = async () => {
+        try {
+            const res = await lecturerService.generateQrAttendance(selectedClass.classId);
+            setQrSession(res);
+        } catch { alert("❌ Lỗi tạo mã QR"); }
+    };
 
     const renderClassDetail = () => {
         if (!selectedClass) return null;
@@ -222,20 +197,24 @@ export default function LecturerPortal() {
                     </div>
                 </div>
 
-                {/* Sub-Tabs cho Lớp học */}
-                <div style={{ display: 'flex', gap: '20px', borderBottom: '2px solid #eee', marginBottom: '20px' }}>
-                    <div onClick={() => setClassSubTab('GRADES')} style={{ padding: '10px 15px', cursor: 'pointer', fontWeight: 'bold', borderBottom: classSubTab === 'GRADES' ? '3px solid #FF6D00' : '3px solid transparent', color: classSubTab === 'GRADES' ? '#FF6D00' : '#666' }}>
-                        <FaEdit /> Bảng điểm sinh viên
+                <div style={{ display: 'flex', gap: '20px', borderBottom: '2px solid #eee', marginBottom: '20px', overflowX: 'auto' }}>
+                    <div onClick={() => setClassSubTab('GRADES')} style={{ padding: '10px 15px', cursor: 'pointer', fontWeight: 'bold', borderBottom: classSubTab === 'GRADES' ? '3px solid #FF6D00' : '3px solid transparent', color: classSubTab === 'GRADES' ? '#FF6D00' : '#666', whiteSpace: 'nowrap' }}>
+                        <FaEdit /> Bảng điểm
                     </div>
-                    <div onClick={() => setClassSubTab('ASSIGNMENTS')} style={{ padding: '10px 15px', cursor: 'pointer', fontWeight: 'bold', borderBottom: classSubTab === 'ASSIGNMENTS' ? '3px solid #28a745' : '3px solid transparent', color: classSubTab === 'ASSIGNMENTS' ? '#28a745' : '#666' }}>
+                    <div onClick={() => setClassSubTab('ATTENDANCE')} style={{ padding: '10px 15px', cursor: 'pointer', fontWeight: 'bold', borderBottom: classSubTab === 'ATTENDANCE' ? '3px solid #6f42c1' : '3px solid transparent', color: classSubTab === 'ATTENDANCE' ? '#6f42c1' : '#666', whiteSpace: 'nowrap' }}>
+                        <FaQrcode /> Điểm danh QR
+                    </div>
+                    <div onClick={() => setClassSubTab('ASSIGNMENTS')} style={{ padding: '10px 15px', cursor: 'pointer', fontWeight: 'bold', borderBottom: classSubTab === 'ASSIGNMENTS' ? '3px solid #28a745' : '3px solid transparent', color: classSubTab === 'ASSIGNMENTS' ? '#28a745' : '#666', whiteSpace: 'nowrap' }}>
                         <FaTasks /> Bài tập ({assignments.length})
                     </div>
-                    <div onClick={() => setClassSubTab('ANNOUNCEMENTS')} style={{ padding: '10px 15px', cursor: 'pointer', fontWeight: 'bold', borderBottom: classSubTab === 'ANNOUNCEMENTS' ? '3px solid #1A237E' : '3px solid transparent', color: classSubTab === 'ANNOUNCEMENTS' ? '#1A237E' : '#666' }}>
-                        <FaBullhorn /> Thông báo lớp ({announcements.length})
+                    <div onClick={() => setClassSubTab('ANALYTICS')} style={{ padding: '10px 15px', cursor: 'pointer', fontWeight: 'bold', borderBottom: classSubTab === 'ANALYTICS' ? '3px solid #17a2b8' : '3px solid transparent', color: classSubTab === 'ANALYTICS' ? '#17a2b8' : '#666', whiteSpace: 'nowrap' }}>
+                        <FaChartLine /> Thống kê lớp
+                    </div>
+                    <div onClick={() => setClassSubTab('ANNOUNCEMENTS')} style={{ padding: '10px 15px', cursor: 'pointer', fontWeight: 'bold', borderBottom: classSubTab === 'ANNOUNCEMENTS' ? '3px solid #1A237E' : '3px solid transparent', color: classSubTab === 'ANNOUNCEMENTS' ? '#1A237E' : '#666', whiteSpace: 'nowrap' }}>
+                        <FaBullhorn /> Thông báo
                     </div>
                 </div>
 
-                {/* Giao diện BẢNG ĐIỂM */}
                 {classSubTab === 'GRADES' && (
                     <>
                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '15px' }}>
@@ -275,12 +254,8 @@ export default function LecturerPortal() {
                                             <td style={{ padding: '12px' }}>{index + 1}</td>
                                             <td style={{ padding: '12px', textAlign: 'left', fontWeight: 'bold' }}>{s.studentCode}</td>
                                             <td style={{ padding: '12px', textAlign: 'left' }}>{s.fullName}</td>
-                                            <td style={{ padding: '12px' }}>
-                                                <input type="number" min="0" max="10" step="0.1" value={editGrades[`${s.studentId}_process`]} onChange={e => handleGradeChange(s.studentId, 'process', e.target.value)} disabled={isGradesLocked} style={{ width: '80%', padding: '8px', textAlign: 'center', border: '1px solid #ccc', borderRadius: '4px', backgroundColor: isGradesLocked ? '#f0f2f5' : 'white' }} />
-                                            </td>
-                                            <td style={{ padding: '12px' }}>
-                                                <input type="number" min="0" max="10" step="0.1" value={editGrades[`${s.studentId}_final`]} onChange={e => handleGradeChange(s.studentId, 'final', e.target.value)} disabled={isGradesLocked} style={{ width: '80%', padding: '8px', textAlign: 'center', border: '1px solid #ccc', borderRadius: '4px', backgroundColor: isGradesLocked ? '#f0f2f5' : 'white' }} />
-                                            </td>
+                                            <td style={{ padding: '12px' }}><input type="number" min="0" max="10" step="0.1" value={editGrades[`${s.studentId}_process`]} onChange={e => handleGradeChange(s.studentId, 'process', e.target.value)} disabled={isGradesLocked} style={{ width: '80%', padding: '8px', textAlign: 'center', border: '1px solid #ccc', borderRadius: '4px', backgroundColor: isGradesLocked ? '#f0f2f5' : 'white' }} /></td>
+                                            <td style={{ padding: '12px' }}><input type="number" min="0" max="10" step="0.1" value={editGrades[`${s.studentId}_final`]} onChange={e => handleGradeChange(s.studentId, 'final', e.target.value)} disabled={isGradesLocked} style={{ width: '80%', padding: '8px', textAlign: 'center', border: '1px solid #ccc', borderRadius: '4px', backgroundColor: isGradesLocked ? '#f0f2f5' : 'white' }} /></td>
                                             <td style={{ padding: '12px', fontWeight: 'bold', color: total >= 4 ? '#28a745' : '#dc3545' }}>{total}</td>
                                         </tr>
                                     );
@@ -290,59 +265,107 @@ export default function LecturerPortal() {
                     </>
                 )}
 
-                {/* Giao diện BÀI TẬP */}
+                {classSubTab === 'ATTENDANCE' && (
+                    <div style={{ textAlign: 'center', padding: '20px' }}>
+                        <h3 style={{ color: '#6f42c1', marginBottom: '10px' }}><FaQrcode size={30} /> Hệ thống Điểm danh Realtime</h3>
+                        <p style={{ color: '#666', marginBottom: '30px' }}>Mã QR sẽ tự động thay đổi sau mỗi 60 giây để chống gian lận điểm danh hộ.</p>
+                        
+                        {!qrSession ? (
+                            <button onClick={handleGenerateQR} style={{ backgroundColor: '#6f42c1', color: 'white', border: 'none', padding: '15px 40px', borderRadius: '30px', fontSize: '18px', fontWeight: 'bold', cursor: 'pointer', boxShadow: '0 4px 15px rgba(111, 66, 193, 0.4)' }}>
+                                Kích hoạt phiên Điểm danh
+                            </button>
+                        ) : (
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                                <div style={{ border: '5px solid #6f42c1', padding: '15px', borderRadius: '20px', backgroundColor: 'white', display: 'inline-block' }}>
+                                    <img src={qrSession.qrUrl} alt="QR Điểm Danh" style={{ width: '300px', height: '300px' }} />
+                                </div>
+                                <h2 style={{ color: '#dc3545', margin: '20px 0' }}>⏳ Thời gian còn lại: 59s</h2>
+                                <button onClick={() => setQrSession(null)} style={{ backgroundColor: '#dc3545', color: 'white', border: 'none', padding: '10px 30px', borderRadius: '20px', fontSize: '16px', fontWeight: 'bold', cursor: 'pointer' }}>
+                                    Đóng QR (Kết thúc điểm danh)
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {classSubTab === 'ANALYTICS' && analytics && (
+                    <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '30px' }}>
+                        <div style={{ backgroundColor: '#f8f9fa', padding: '20px', borderRadius: '12px', border: '1px solid #eee' }}>
+                            <h4 style={{ textAlign: 'center', margin: '0 0 20px 0', color: '#333' }}>Phổ điểm sinh viên (Score Distribution)</h4>
+                            <div style={{ height: '300px' }}>
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart data={analytics.scoreDistribution}>
+                                        <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                                        <XAxis dataKey="name" />
+                                        <YAxis allowDecimals={false} />
+                                        <Tooltip cursor={{ fill: 'transparent' }} />
+                                        <Bar dataKey="count" fill="#17a2b8" radius={[5, 5, 0, 0]} name="Số lượng SV" />
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            </div>
+                        </div>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                            <div style={{ backgroundColor: '#fff3cd', borderLeft: '5px solid #ffc107', padding: '20px', borderRadius: '8px' }}>
+                                <h4 style={{ color: '#856404', margin: '0 0 10px 0', display: 'flex', alignItems: 'center', gap: '8px' }}><FaExclamationTriangle /> Cảnh báo Học thuật</h4>
+                                <p style={{ margin: 0, color: '#666' }}>Có <strong>{analytics.riskStudents} sinh viên</strong> có nguy cơ rớt môn (Điểm dưới 4 hoặc vắng quá 20%).</p>
+                            </div>
+                            
+                            <div style={{ backgroundColor: '#f8f9fa', padding: '20px', borderRadius: '12px', border: '1px solid #eee', flex: 1 }}>
+                                <h4 style={{ textAlign: 'center', margin: '0 0 10px 0', color: '#333' }}>Tỷ lệ Chuyên cần</h4>
+                                <div style={{ height: '200px' }}>
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <PieChart>
+                                            <Pie data={analytics.attendanceRate} cx="50%" cy="50%" innerRadius={50} outerRadius={80} dataKey="value" stroke="none">
+                                                {analytics.attendanceRate.map((entry, index) => (
+                                                    <Cell key={`cell-${index}`} fill={entry.fill} />
+                                                ))}
+                                            </Pie>
+                                            <Tooltip />
+                                            <Legend verticalAlign="bottom" height={36}/>
+                                        </PieChart>
+                                    </ResponsiveContainer>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 {classSubTab === 'ASSIGNMENTS' && (
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '20px' }}>
-                        <div style={{ backgroundColor: '#f8f9fa', padding: '20px', borderRadius: '8px', height: 'fit-content' }}>
+                        <div style={{ backgroundColor: '#f8f9fa', padding: '20px', borderRadius: '8px' }}>
                             <h4 style={{ margin: '0 0 15px 0' }}>Giao Bài tập mới</h4>
                             <form onSubmit={handleCreateAssignment} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
                                 <input type="text" placeholder="Tên bài tập..." required value={newAssignment.title} onChange={e => setNewAssignment({...newAssignment, title: e.target.value})} style={{ padding: '10px', borderRadius: '4px', border: '1px solid #ccc' }} />
                                 <input type="datetime-local" required value={newAssignment.deadline} onChange={e => setNewAssignment({...newAssignment, deadline: e.target.value})} style={{ padding: '10px', borderRadius: '4px', border: '1px solid #ccc' }} />
-                                <textarea rows="4" placeholder="Mô tả yêu cầu..." required value={newAssignment.description} onChange={e => setNewAssignment({...newAssignment, description: e.target.value})} style={{ padding: '10px', borderRadius: '4px', border: '1px solid #ccc', resize: 'vertical' }} />
-                                <button type="submit" style={{ padding: '10px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}>
-                                    <FaPaperPlane /> Giao Bài Tập
-                                </button>
+                                <textarea rows="4" placeholder="Mô tả..." required value={newAssignment.description} onChange={e => setNewAssignment({...newAssignment, description: e.target.value})} style={{ padding: '10px', borderRadius: '4px', border: '1px solid #ccc' }} />
+                                <button type="submit" style={{ padding: '10px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer' }}><FaPaperPlane /> Giao Bài Tập</button>
                             </form>
                         </div>
                         <div>
-                            <h4 style={{ margin: '0 0 15px 0' }}>Danh sách Bài tập đã giao</h4>
-                            {assignments.length === 0 ? <p style={{ color: '#888' }}>Chưa có bài tập nào.</p> : assignments.map(a => (
-                                <div key={a.id} style={{ backgroundColor: 'white', border: '1px solid #eee', padding: '15px', borderRadius: '8px', marginBottom: '10px', borderLeft: '4px solid #28a745', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <div>
-                                        <h4 style={{ margin: '0 0 5px 0', color: '#333' }}>{a.title}</h4>
-                                        <p style={{ margin: '5px 0', color: '#555', fontSize: '14px' }}>{a.description}</p>
-                                        <span style={{ fontSize: '12px', color: '#dc3545', fontWeight: 'bold' }}>Hạn chót: {new Date(a.deadline).toLocaleString('vi-VN')}</span>
-                                    </div>
-                                    <div style={{ textAlign: 'center', backgroundColor: '#eef2ff', padding: '10px', borderRadius: '8px', minWidth: '80px' }}>
-                                        <h3 style={{ margin: 0, color: '#1A237E' }}>{a.submittedCount}</h3>
-                                        <span style={{ fontSize: '12px', color: '#666' }}>Bài nộp</span>
-                                    </div>
+                            {assignments.map(a => (
+                                <div key={a.id} style={{ backgroundColor: 'white', border: '1px solid #eee', padding: '15px', borderRadius: '8px', marginBottom: '10px', borderLeft: '4px solid #28a745', display: 'flex', justifyContent: 'space-between' }}>
+                                    <div><h4>{a.title}</h4><span style={{color: 'red'}}>Hạn: {new Date(a.deadline).toLocaleString('vi-VN')}</span></div>
+                                    <div style={{backgroundColor: '#eef2ff', padding: '10px', borderRadius: '8px', textAlign: 'center'}}><h3>{a.submittedCount}</h3><span>Bài nộp</span></div>
                                 </div>
                             ))}
                         </div>
                     </div>
                 )}
 
-                {/* Giao diện THÔNG BÁO LỚP */}
                 {classSubTab === 'ANNOUNCEMENTS' && (
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '20px' }}>
-                        <div style={{ backgroundColor: '#f8f9fa', padding: '20px', borderRadius: '8px', height: 'fit-content' }}>
-                            <h4 style={{ margin: '0 0 15px 0' }}>Soạn thông báo mới</h4>
+                        <div style={{ backgroundColor: '#f8f9fa', padding: '20px', borderRadius: '8px' }}>
                             <form onSubmit={handleSendAnnouncement} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
                                 <input type="text" placeholder="Tiêu đề..." required value={newAnnouncement.title} onChange={e => setNewAnnouncement({...newAnnouncement, title: e.target.value})} style={{ padding: '10px', borderRadius: '4px', border: '1px solid #ccc' }} />
-                                <textarea rows="5" placeholder="Nội dung thông báo (nghỉ học, dời lịch, v.v.)..." required value={newAnnouncement.content} onChange={e => setNewAnnouncement({...newAnnouncement, content: e.target.value})} style={{ padding: '10px', borderRadius: '4px', border: '1px solid #ccc', resize: 'vertical' }} />
-                                <button type="submit" style={{ padding: '10px', backgroundColor: '#1A237E', color: 'white', border: 'none', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}>
-                                    <FaPaperPlane /> Gửi cho Sinh viên
-                                </button>
+                                <textarea rows="5" placeholder="Nội dung..." required value={newAnnouncement.content} onChange={e => setNewAnnouncement({...newAnnouncement, content: e.target.value})} style={{ padding: '10px', borderRadius: '4px', border: '1px solid #ccc' }} />
+                                <button type="submit" style={{ padding: '10px', backgroundColor: '#1A237E', color: 'white', border: 'none', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer' }}><FaPaperPlane /> Gửi</button>
                             </form>
                         </div>
                         <div>
-                            <h4 style={{ margin: '0 0 15px 0' }}>Lịch sử thông báo</h4>
-                            {announcements.length === 0 ? <p style={{ color: '#888' }}>Chưa có thông báo nào được gửi.</p> : announcements.map(a => (
+                            {announcements.map(a => (
                                 <div key={a.id} style={{ backgroundColor: 'white', border: '1px solid #eee', padding: '15px', borderRadius: '8px', marginBottom: '10px', borderLeft: '4px solid #1A237E' }}>
-                                    <h4 style={{ margin: '0 0 5px 0', color: '#333' }}>{a.title}</h4>
-                                    <span style={{ fontSize: '12px', color: '#888' }}>{new Date(a.createdAt).toLocaleString('vi-VN')}</span>
-                                    <p style={{ margin: '10px 0 0 0', color: '#555', fontSize: '14px', whiteSpace: 'pre-wrap' }}>{a.content}</p>
+                                    <h4>{a.title}</h4><p>{a.content}</p>
                                 </div>
                             ))}
                         </div>
@@ -355,18 +378,13 @@ export default function LecturerPortal() {
     return (
         <LecturerLayout activeTab={activeTab} setActiveTab={setActiveTab}>
             <div style={{ animation: 'fadeIn 0.5s' }}>
-                {activeTab === 'DASHBOARD' && renderDashboard()}
-                
                 {activeTab === 'MY_CLASSES' && (selectedClass ? renderClassDetail() : 
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '20px' }}>
-                        {classes.length === 0 ? <p>Bạn chưa phụ trách lớp nào.</p> : classes.map(c => (
+                        {classes.length === 0 ? <p>Chưa phụ trách lớp nào.</p> : classes.map(c => (
                             <div key={c.classId} style={{ backgroundColor: 'white', padding: '20px', borderRadius: '12px', boxShadow: '0 2px 10px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1px solid #eee', paddingBottom: '10px', marginBottom: '15px' }}>
-                                    <h3 style={{ margin: 0, color: '#1A237E' }}>{c.classCode}</h3>
-                                    <span style={{ backgroundColor: '#eef2ff', color: '#1A237E', padding: '4px 10px', borderRadius: '20px', fontSize: '12px', fontWeight: 'bold' }}>{c.studentCount} SV</span>
-                                </div>
+                                <h3 style={{ margin: '0 0 10px 0', color: '#1A237E' }}>{c.classCode}</h3>
                                 <h4 style={{ margin: '0 0 20px 0', color: '#444' }}>{c.subjectName}</h4>
-                                <button onClick={() => handleSelectClass(c)} style={{ marginTop: 'auto', backgroundColor: '#1A237E', color: 'white', border: 'none', padding: '10px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', justifyContent: 'center', gap: '8px', alignItems: 'center' }}>
+                                <button onClick={() => handleSelectClass(c)} style={{ marginTop: 'auto', backgroundColor: '#1A237E', color: 'white', border: 'none', padding: '10px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>
                                     <FaEdit /> Quản lý Lớp học
                                 </button>
                             </div>
@@ -374,40 +392,22 @@ export default function LecturerPortal() {
                     </div>
                 )}
 
-                {/* Giao diện KHÓA LUẬN / ĐỒ ÁN (COMBO 2) */}
                 {activeTab === 'THESIS' && (
                     <div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '25px' }}>
-                            <h2 style={{ color: '#1A237E', margin: 0 }}><FaGraduationCap /> Sinh viên thực hiện Khóa luận / Đồ án</h2>
-                        </div>
-                        <div style={{ backgroundColor: 'white', padding: '25px', borderRadius: '12px', boxShadow: '0 2px 10px rgba(0,0,0,0.05)' }}>
-                            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-                                <thead>
-                                    <tr style={{ backgroundColor: '#1A237E', color: 'white' }}>
-                                        <th style={{ padding: '15px' }}>Tên Đề tài (Topic)</th>
-                                        <th style={{ padding: '15px' }}>Nhóm Sinh viên</th>
-                                        <th style={{ padding: '15px' }}>Trạng thái</th>
-                                        <th style={{ padding: '15px', textAlign: 'center' }}>Hành động</th>
+                        <h2 style={{ color: '#1A237E', marginTop: 0 }}><FaGraduationCap /> Hướng dẫn Đồ án</h2>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', backgroundColor: 'white' }}>
+                            <thead><tr style={{ backgroundColor: '#1A237E', color: 'white' }}>
+                                <th style={{ padding: '15px' }}>Đề tài</th><th style={{ padding: '15px', textAlign: 'center' }}>Thao tác</th>
+                            </tr></thead>
+                            <tbody>
+                                {theses.map(t => (
+                                    <tr key={t.id} style={{ borderBottom: '1px solid #eee' }}>
+                                        <td style={{ padding: '15px', fontWeight: 'bold' }}>{t.title}</td>
+                                        <td style={{ padding: '15px', textAlign: 'center' }}><button onClick={() => handleGradeThesis(t.id)} style={{ background: '#28a745', color: 'white', border: 'none', padding: '6px 15px', borderRadius: '4px', cursor: 'pointer' }}>Đánh giá</button></td>
                                     </tr>
-                                </thead>
-                                <tbody>
-                                    {theses.length === 0 ? <tr><td colSpan="4" style={{ padding: '20px', textAlign: 'center', color: '#888' }}>Bạn chưa được phân công hướng dẫn đồ án nào.</td></tr> : theses.map(t => (
-                                        <tr key={t.id} style={{ borderBottom: '1px solid #eee' }}>
-                                            <td style={{ padding: '15px', fontWeight: 'bold', color: '#333' }}>{t.title}</td>
-                                            <td style={{ padding: '15px', color: '#666' }}>{t.studentName}</td>
-                                            <td style={{ padding: '15px' }}>
-                                                <span style={{ backgroundColor: '#fff3cd', color: '#856404', padding: '5px 10px', borderRadius: '20px', fontSize: '12px', fontWeight: 'bold' }}>{t.status}</span>
-                                            </td>
-                                            <td style={{ padding: '15px', textAlign: 'center' }}>
-                                                <button onClick={() => handleGradeThesis(t.id)} style={{ background: '#28a745', color: 'white', border: 'none', padding: '6px 15px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '5px', margin: '0 auto' }}>
-                                                    <FaCheckCircle /> Đánh giá
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
+                                ))}
+                            </tbody>
+                        </table>
                     </div>
                 )}
             </div>
