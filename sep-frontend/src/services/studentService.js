@@ -53,6 +53,20 @@ const studentService = {
     submitAttendanceQR: async (qrData) => {
         const response = await axiosClient.post(`/students/actions/attendance/scan`, { qrData });
         return response.data;
+    },
+
+    // 🔥 CÁC HÀM COMBO 3: AI & ĐĂNG KÝ HỌC PHẦN
+    getAvailableClasses: async () => {
+        const response = await axiosClient.get(`/students/registration/available-classes`);
+        return response.data;
+    },
+    getAiRecommendations: async () => {
+        const response = await axiosClient.get(`/students/registration/ai-recommendations`);
+        return response.data;
+    },
+    enrollNewClass: async (classId) => {
+        const response = await axiosClient.post(`/students/registration/enroll/${classId}`);
+        return response.data;
     }
 };
 

@@ -3,38 +3,53 @@ import studentService from '../services/studentService';
 import StudentLayout from '../components/StudentLayout';
 import { 
     FaArrowLeft, FaBullhorn, FaCheckCircle, FaExclamationCircle, 
-    FaQrcode, FaTasks, FaCloudUploadAlt, FaCamera 
+    FaQrcode, FaTasks, FaCloudUploadAlt, FaCamera, FaRobot, FaMagic, FaCalendarAlt
 } from 'react-icons/fa';
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer } from 'recharts';
 
 export default function StudentPortal() {
     const [activeTab, setActiveTab] = useState('DASHBOARD');
+    
+    // States Chung
     const [classes, setClasses] = useState([]);
     const [dashboardData, setDashboardData] = useState(null);
-    
     const [selectedClass, setSelectedClass] = useState(null);
     const [classSubTab, setClassSubTab] = useState('GRADES'); 
     
+    // States Chi tiết lớp
     const [grades, setGrades] = useState(null);
     const [announcements, setAnnouncements] = useState([]);
-    
-    // States cho Combo 2
     const [assignments, setAssignments] = useState([]);
     const [qrCodeData, setQrCodeData] = useState('');
-    const [submissionUrl, setSubmissionUrl] = useState({}); // Lưu url nộp bài theo assignment ID
+    const [submissionUrl, setSubmissionUrl] = useState({});
+
+    // States Đăng ký môn & AI
+    const [availableClasses, setAvailableClasses] = useState([]);
+    const [aiRecommendations, setAiRecommendations] = useState([]);
 
     useEffect(() => {
-        // eslint-disable-next-line react-hooks/exhaustive-deps
         fetchStudentData();
     }, []);
 
+    // Tải dữ liệu tùy theo Tab đang bật
+    useEffect(() => {
+        if (activeTab === 'REGISTRATION') {
+            fetchRegistrationData();
+        }
+    }, [activeTab]);
+
     const fetchStudentData = async () => {
         try {
-            const classData = await studentService.getMyClasses();
-            setClasses(classData);
-            const dashData = await studentService.getDashboard();
-            setDashboardData(dashData);
+            setClasses(await studentService.getMyClasses());
+            setDashboardData(await studentService.getDashboard());
         } catch { console.error("Lỗi tải dữ liệu"); }
+    };
+
+    const fetchRegistrationData = async () => {
+        try {
+            setAvailableClasses(await studentService.getAvailableClasses());
+            setAiRecommendations(await studentService.getAiRecommendations());
+        } catch { console.error("Lỗi tải dữ liệu đăng ký"); }
     };
 
     const handleSelectClass = async (cls) => {
@@ -47,26 +62,31 @@ export default function StudentPortal() {
         } catch { console.error("Lỗi tải chi tiết lớp"); }
     };
 
-    // --- XỬ LÝ ĐIỂM DANH & NỘP BÀI ---
     const handleScanQR = async (e) => {
         e.preventDefault();
         if (!qrCodeData) return alert("Vui lòng nhập dữ liệu mã QR!");
         try {
-            const res = await studentService.submitAttendanceQR(qrCodeData);
-            alert(res);
+            alert(await studentService.submitAttendanceQR(qrCodeData));
             setQrCodeData('');
         } catch { alert("❌ Lỗi điểm danh hoặc mã QR đã hết hạn!"); }
     };
 
     const handleSubmitAssignment = async (assignmentId) => {
         const url = submissionUrl[assignmentId];
-        if (!url) return alert("Vui lòng dán Link bài làm (Drive/Github)!");
+        if (!url) return alert("Vui lòng dán Link bài làm!");
         try {
-            const res = await studentService.submitAssignment(assignmentId, url);
-            alert(res);
-            // Refresh lại danh sách bài tập
+            alert(await studentService.submitAssignment(assignmentId, url));
             setAssignments(await studentService.getClassAssignments(selectedClass.classId));
         } catch { alert("❌ Lỗi nộp bài!"); }
+    };
+
+    const handleEnrollClass = async (classId) => {
+        try {
+            alert(await studentService.enrollNewClass(classId));
+            fetchStudentData(); // Reload lại danh sách môn của tôi
+        } catch (error) { 
+            alert("❌ " + (error.response?.data || "Lỗi đăng ký môn học!")); 
+        }
     };
 
     // ==========================================
@@ -120,7 +140,6 @@ export default function StudentPortal() {
                 <h2 style={{ margin: '0 0 5px 0', color: '#006666' }}>{selectedClass.subjectName}</h2>
                 <p style={{ color: '#666', margin: '0 0 20px 0' }}>Mã lớp: <strong>{selectedClass.classCode}</strong> | Giảng viên: <strong>{selectedClass.lecturerName}</strong></p>
 
-                {/* MENU TABS BÊN TRONG LỚP HỌC */}
                 <div style={{ display: 'flex', gap: '20px', borderBottom: '2px solid #eee', marginBottom: '20px', overflowX: 'auto' }}>
                     <div onClick={() => setClassSubTab('GRADES')} style={{ padding: '10px 15px', cursor: 'pointer', fontWeight: 'bold', borderBottom: classSubTab === 'GRADES' ? '3px solid #006666' : '3px solid transparent', color: classSubTab === 'GRADES' ? '#006666' : '#666', whiteSpace: 'nowrap' }}>Bảng điểm</div>
                     <div onClick={() => setClassSubTab('ATTENDANCE')} style={{ padding: '10px 15px', cursor: 'pointer', fontWeight: 'bold', borderBottom: classSubTab === 'ATTENDANCE' ? '3px solid #6f42c1' : '3px solid transparent', color: classSubTab === 'ATTENDANCE' ? '#6f42c1' : '#666', whiteSpace: 'nowrap' }}><FaQrcode /> Điểm danh QR</div>
@@ -128,7 +147,6 @@ export default function StudentPortal() {
                     <div onClick={() => setClassSubTab('ANNOUNCEMENTS')} style={{ padding: '10px 15px', cursor: 'pointer', fontWeight: 'bold', borderBottom: classSubTab === 'ANNOUNCEMENTS' ? '3px solid #ffc107' : '3px solid transparent', color: classSubTab === 'ANNOUNCEMENTS' ? '#ffc107' : '#666', whiteSpace: 'nowrap' }}><FaBullhorn /> Thông báo</div>
                 </div>
 
-                {/* TAB BẢNG ĐIỂM */}
                 {classSubTab === 'GRADES' && (
                     <div style={{ maxWidth: '700px' }}>
                         <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', border: '1px solid #ddd' }}>
@@ -149,23 +167,15 @@ export default function StudentPortal() {
                                 </tr>
                             </tbody>
                         </table>
-                        {totalScore !== null && (
-                            <div style={{ marginTop: '20px', padding: '15px', borderRadius: '8px', backgroundColor: totalScore >= 4 ? '#d4edda' : '#f8d7da', color: totalScore >= 4 ? '#155724' : '#721c24', display: 'flex', alignItems: 'center', gap: '10px', fontWeight: 'bold' }}>
-                                {totalScore >= 4 ? <FaCheckCircle size={20} /> : <FaExclamationCircle size={20} />}
-                                {totalScore >= 4 ? 'Chúc mừng! Bạn đã đủ điểm qua môn này.' : 'Cảnh báo: Bạn chưa đủ điểm qua môn.'}
-                            </div>
-                        )}
                     </div>
                 )}
 
-                {/* 🔥 TAB ĐIỂM DANH QR (MỤC 3) */}
                 {classSubTab === 'ATTENDANCE' && (
                     <div style={{ textAlign: 'center', padding: '30px', backgroundColor: '#f8f9fa', borderRadius: '12px', border: '1px dashed #ccc' }}>
                         <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '80px', height: '80px', borderRadius: '50%', backgroundColor: '#e0cffc', color: '#6f42c1', marginBottom: '20px' }}>
                             <FaCamera size={40} />
                         </div>
                         <h3 style={{ color: '#333' }}>Quét mã QR Điểm danh</h3>
-                        <p style={{ color: '#666', marginBottom: '20px' }}>Sử dụng Camera trên ứng dụng di động để quét, hoặc dán dữ liệu QR vào đây để giả lập điểm danh.</p>
                         <form onSubmit={handleScanQR} style={{ display: 'flex', justifyContent: 'center', gap: '10px' }}>
                             <input type="text" placeholder="Dán mã QR (ví dụ: SEP_ATTENDANCE_...)" value={qrCodeData} onChange={e => setQrCodeData(e.target.value)} style={{ padding: '12px', borderRadius: '6px', border: '1px solid #ccc', width: '350px' }} />
                             <button type="submit" style={{ backgroundColor: '#6f42c1', color: 'white', border: 'none', padding: '12px 25px', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}>Ghi nhận</button>
@@ -173,10 +183,9 @@ export default function StudentPortal() {
                     </div>
                 )}
 
-                {/* 🔥 TAB BÀI TẬP & NỘP BÀI (MỤC 4) */}
                 {classSubTab === 'ASSIGNMENTS' && (
                     <div>
-                        {assignments.length === 0 ? <p style={{ color: '#888', textAlign: 'center' }}>Tuyệt vời! Hiện tại bạn không có bài tập nào.</p> : assignments.map(a => (
+                        {assignments.length === 0 ? <p style={{ color: '#888' }}>Hiện tại bạn không có bài tập nào.</p> : assignments.map(a => (
                             <div key={a.id} style={{ backgroundColor: 'white', border: '1px solid #eee', padding: '20px', borderRadius: '8px', marginBottom: '15px', borderLeft: a.status === 'SUBMITTED' ? '5px solid #28a745' : '5px solid #dc3545', display: 'flex', flexDirection: 'column', gap: '15px' }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                                     <div>
@@ -190,14 +199,10 @@ export default function StudentPortal() {
                                         <div style={{ fontSize: '12px', color: '#dc3545', fontWeight: 'bold' }}>Hạn chót: {new Date(a.deadline).toLocaleString('vi-VN')}</div>
                                     </div>
                                 </div>
-
-                                {/* Form nộp bài */}
                                 {a.status !== 'SUBMITTED' && (
                                     <div style={{ display: 'flex', gap: '10px', marginTop: '10px', paddingTop: '15px', borderTop: '1px dashed #eee' }}>
                                         <input type="text" placeholder="Dán Link Google Drive / Github bài làm..." value={submissionUrl[a.id] || ''} onChange={e => setSubmissionUrl({...submissionUrl, [a.id]: e.target.value})} style={{ flex: 1, padding: '10px', borderRadius: '4px', border: '1px solid #ccc' }} />
-                                        <button onClick={() => handleSubmitAssignment(a.id)} style={{ backgroundColor: '#28a745', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                                            <FaCloudUploadAlt /> Nộp Bài
-                                        </button>
+                                        <button onClick={() => handleSubmitAssignment(a.id)} style={{ backgroundColor: '#28a745', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px' }}><FaCloudUploadAlt /> Nộp Bài</button>
                                     </div>
                                 )}
                             </div>
@@ -205,14 +210,11 @@ export default function StudentPortal() {
                     </div>
                 )}
 
-                {/* TAB THÔNG BÁO */}
                 {classSubTab === 'ANNOUNCEMENTS' && (
                     <div>
-                        {announcements.length === 0 ? <p style={{ color: '#888' }}>Giảng viên chưa có thông báo nào.</p> : announcements.map(a => (
+                        {announcements.map(a => (
                             <div key={a.id} style={{ backgroundColor: '#f8f9fa', border: '1px solid #eee', padding: '20px', borderRadius: '8px', marginBottom: '15px', borderLeft: '4px solid #ffc107' }}>
-                                <h3 style={{ margin: '0 0 5px 0', color: '#333' }}>{a.title}</h3>
-                                <span style={{ fontSize: '12px', color: '#888' }}>Đăng lúc: {new Date(a.createdAt).toLocaleString('vi-VN')}</span>
-                                <p style={{ margin: '15px 0 0 0', color: '#444', fontSize: '15px', whiteSpace: 'pre-wrap', lineHeight: '1.5' }}>{a.content}</p>
+                                <h3 style={{ margin: '0 0 5px 0', color: '#333' }}>{a.title}</h3><p>{a.content}</p>
                             </div>
                         ))}
                     </div>
@@ -221,8 +223,68 @@ export default function StudentPortal() {
         );
     };
 
+    const renderRegistration = () => (
+        <div style={{ animation: 'fadeIn 0.5s' }}>
+            <div style={{ background: 'linear-gradient(135deg, #006666 0%, #1A237E 100%)', borderRadius: '12px', padding: '25px', color: 'white', marginBottom: '30px', boxShadow: '0 5px 15px rgba(0, 102, 102, 0.3)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginBottom: '20px' }}>
+                    <div style={{ backgroundColor: 'rgba(255,255,255,0.2)', padding: '15px', borderRadius: '50%' }}><FaRobot size={30} /></div>
+                    <div>
+                        <h2 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>AI Advisor <FaMagic color="#ffc107" size={20} /></h2>
+                        <p style={{ margin: '5px 0 0 0', opacity: 0.9 }}>Hệ thống phân tích lịch sử học tập và gợi ý lộ trình tối ưu nhất cho bạn.</p>
+                    </div>
+                </div>
+                
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px' }}>
+                    {aiRecommendations.map((ai, index) => (
+                        <div key={index} style={{ backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: '8px', padding: '20px', borderLeft: `5px solid ${ai.type === 'BẮT BUỘC' ? '#ffc107' : '#28a745'}` }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
+                                <span style={{ backgroundColor: ai.type === 'BẮT BUỘC' ? '#ffc107' : '#28a745', color: ai.type === 'BẮT BUỘC' ? '#333' : 'white', padding: '3px 10px', borderRadius: '12px', fontSize: '12px', fontWeight: 'bold' }}>{ai.type}</span>
+                                <span style={{ fontWeight: 'bold', color: '#00ffcc' }}>Độ phù hợp: {ai.match}%</span>
+                            </div>
+                            <h3 style={{ margin: '0 0 10px 0' }}>{ai.name} ({ai.code})</h3>
+                            <p style={{ margin: 0, fontSize: '14px', opacity: 0.9, fontStyle: 'italic' }}>"{ai.reason}"</p>
+                        </div>
+                    ))}
+                </div>
+            </div>
+
+            <h3 style={{ color: '#006666', borderBottom: '2px solid #eee', paddingBottom: '10px', marginBottom: '20px' }}>Các lớp học đang mở đăng ký</h3>
+            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', backgroundColor: 'white', borderRadius: '8px', overflow: 'hidden', boxShadow: '0 2px 10px rgba(0,0,0,0.05)' }}>
+                <thead style={{ backgroundColor: '#f8f9fa', borderBottom: '2px solid #ddd' }}>
+                    <tr>
+                        <th style={{ padding: '15px' }}>Mã - Tên môn</th>
+                        <th style={{ padding: '15px', textAlign: 'center' }}>Số TC</th>
+                        <th style={{ padding: '15px' }}>Lịch học</th>
+                        <th style={{ padding: '15px' }}>Điều kiện Tiên quyết</th>
+                        <th style={{ padding: '15px', textAlign: 'center' }}>Sĩ số</th>
+                        <th style={{ padding: '15px', textAlign: 'center' }}>Thao tác</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {availableClasses.map(c => (
+                        <tr key={c.id} style={{ borderBottom: '1px solid #eee' }}>
+                            <td style={{ padding: '15px' }}><strong>{c.code}</strong><br/>{c.name}</td>
+                            <td style={{ padding: '15px', textAlign: 'center' }}><span style={{ backgroundColor: '#e9ecef', padding: '5px 10px', borderRadius: '5px', fontWeight: 'bold' }}>{c.credits}</span></td>
+                            <td style={{ padding: '15px', color: '#006666', fontWeight: '500' }}><FaCalendarAlt /> {c.schedule}</td>
+                            <td style={{ padding: '15px', color: c.prerequisite !== 'Không' ? '#dc3545' : '#28a745' }}>{c.prerequisite}</td>
+                            <td style={{ padding: '15px', textAlign: 'center', color: c.status === 'FULL' ? 'red' : 'inherit' }}>
+                                {c.status === 'FULL' ? 'Đã đầy' : `Còn ${c.remaining} chỗ`}
+                            </td>
+                            <td style={{ padding: '15px', textAlign: 'center' }}>
+                                <button onClick={() => handleEnrollClass(c.id)} style={{ backgroundColor: c.status === 'FULL' ? '#ffc107' : '#006666', color: c.status === 'FULL' ? '#333' : 'white', border: 'none', padding: '8px 15px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
+                                    {c.status === 'FULL' ? 'Vào Waitlist' : 'Đăng ký'}
+                                </button>
+                            </td>
+                        </tr>
+                    ))}
+                </tbody>
+            </table>
+        </div>
+    );
+
     return (
         <StudentLayout activeTab={activeTab} setActiveTab={setActiveTab}>
+            
             {activeTab === 'DASHBOARD' && renderDashboard()}
             
             {activeTab === 'GRADES' && (selectedClass ? renderClassDetail() : 
@@ -241,13 +303,18 @@ export default function StudentPortal() {
                 </div>
             )}
 
-            {(activeTab === 'REGISTRATION' || activeTab === 'TIMETABLE' || activeTab === 'CURRICULUM') && (
+            {/* TAB ĐĂNG KÝ HỌC PHẦN CHÍNH THỨC XUẤT HIỆN */}
+            {activeTab === 'REGISTRATION' && renderRegistration()}
+
+            {/* CÁC TAB CÒN LẠI VẪN HIỂN THỊ ĐANG PHÁT TRIỂN */}
+            {(activeTab === 'TIMETABLE' || activeTab === 'CURRICULUM') && (
                 <div style={{ backgroundColor: 'white', padding: '40px', borderRadius: '12px', textAlign: 'center', color: '#666', boxShadow: '0 2px 10px rgba(0,0,0,0.05)' }}>
                     <FaExclamationCircle size={50} color="#ffc107" style={{ marginBottom: '15px' }} />
                     <h2>Tính năng đang phát triển</h2>
                     <p>Hệ thống đang được nâng cấp. Vui lòng quay lại sau!</p>
                 </div>
             )}
+
         </StudentLayout>
     );
 }
