@@ -35,6 +35,24 @@ const lecturerService = {
             headers: { 'Content-Type': 'multipart/form-data' }
         });
         return response.data;
+    },
+
+    // 🔥 CÁC HÀM MỚI COMBO 2 (BÀI TẬP & ĐỒ ÁN)
+    getAssignments: async (classId) => {
+        const response = await axiosClient.get(`/lecturer/classes/${classId}/assignments`);
+        return response.data;
+    },
+    createAssignment: async (classId, data) => {
+        const response = await axiosClient.post(`/lecturer/classes/${classId}/assignments`, data);
+        return response.data;
+    },
+    getMyTheses: async (lecturerId) => {
+        const response = await axiosClient.get(`/lecturer/${lecturerId}/theses`);
+        return response.data;
+    },
+    gradeThesis: async (thesisId, data) => {
+        const response = await axiosClient.put(`/lecturer/theses/${thesisId}/grade`, data);
+        return response.data;
     }
 };
 
