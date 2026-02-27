@@ -1,13 +1,22 @@
-import React, { useEffect, useState, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import {
+    FaArrowLeft,
+    FaBullhorn,
+    FaChartLine,
+    FaEdit,
+    FaExclamationTriangle,
+    FaFileExcel, FaFileExport,
+    FaGraduationCap,
+    FaLock,
+    FaPaperPlane,
+    FaQrcode,
+    FaSave,
+    FaTasks
+} from 'react-icons/fa';
+import { Bar, BarChart, CartesianGrid, Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import LecturerLayout from '../components/LecturerLayout';
 import lecturerService from '../services/lecturerService';
 import userService from '../services/userService';
-import LecturerLayout from '../components/LecturerLayout';
-import { 
-    FaSave, FaArrowLeft, FaEdit, FaFileExcel, FaFileExport, 
-    FaLock, FaBullhorn, FaPaperPlane, FaTasks, FaGraduationCap, 
-    FaCheckCircle, FaQrcode, FaChartLine, FaExclamationTriangle 
-} from 'react-icons/fa';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
 
 export default function LecturerPortal() {
     const [activeTab, setActiveTab] = useState('MY_CLASSES');
@@ -22,7 +31,7 @@ export default function LecturerPortal() {
     const [editGrades, setEditGrades] = useState({});
     const fileInputRef = useRef(null);
     
-    const [announcements, setAnnouncements] = useState([]);
+    const [announcements, setAnnouncements] = useState([]); // Đã fix lỗi dính chữ ở đây
     const [newAnnouncement, setNewAnnouncement] = useState({ title: '', content: '' });
     
     const [assignments, setAssignments] = useState([]);
@@ -31,6 +40,11 @@ export default function LecturerPortal() {
     const [theses, setTheses] = useState([]);
     const [qrSession, setQrSession] = useState(null);
     const [analytics, setAnalytics] = useState(null);
+
+    // State quản lý xem chi tiết bài nộp
+    const [activeAssignmentId, setActiveAssignmentId] = useState(null);
+    const [submissionDetails, setSubmissionDetails] = useState(null);
+    const [gradeInputs, setGradeInputs] = useState({}); 
 
     const fetchLecturerData = async () => {
         try {
@@ -64,6 +78,7 @@ export default function LecturerPortal() {
         setClassSubTab('GRADES');
         setIsGradesLocked(false); 
         setQrSession(null);
+        setActiveAssignmentId(null); // Reset màn hình bài nộp khi đổi lớp
         fetchStudents(cls.classId);
         fetchAnnouncements(cls.classId);
         fetchAssignments(cls.classId);
@@ -169,7 +184,7 @@ export default function LecturerPortal() {
         const score = prompt("Nhập điểm đánh giá (0-10):");
         if (score) { 
             try { 
-                await lecturerService.gradeThesis(thesisId, { score }); 
+                await lecturerService.gradeThesis(thesisId, { score: parseFloat(score) }); 
                 fetchLecturerData(); 
             } catch { alert("Lỗi cập nhật điểm đồ án"); } 
         }
@@ -180,6 +195,42 @@ export default function LecturerPortal() {
             const res = await lecturerService.generateQrAttendance(selectedClass.classId);
             setQrSession(res);
         } catch { alert("❌ Lỗi tạo mã QR"); }
+    };
+
+    // ===============================================
+    // HÀM XỬ LÝ BÀI NỘP (SUBMISSIONS)
+    // ===============================================
+    const handleViewSubmissions = async (assignmentId) => {
+        try {
+            const data = await lecturerService.getAssignmentSubmissions(assignmentId);
+            setSubmissionDetails(data);
+            setActiveAssignmentId(assignmentId);
+            
+            const initialGrades = {};
+            data.submissions.forEach(sub => {
+                if (sub.score !== null) initialGrades[sub.submissionId] = sub.score;
+            });
+            setGradeInputs(initialGrades);
+        } catch (error) {
+            console.error("Lỗi lấy danh sách bài nộp:", error);
+            alert("Lỗi tải danh sách bài nộp");
+        }
+    };
+
+    const handleSaveGrade = async (submissionId) => {
+        const score = gradeInputs[submissionId];
+        if (score === undefined || score === '' || score < 0 || score > 10) {
+            alert("Vui lòng nhập điểm hợp lệ (0 - 10)");
+            return;
+        }
+
+        try {
+            await lecturerService.gradeSubmission(submissionId, { score: parseFloat(score) });
+            alert("✅ Đã lưu điểm thành công!");
+            handleViewSubmissions(activeAssignmentId); // Reload lại data
+        } catch (error) {
+            alert("❌ Lỗi khi lưu điểm!");
+        }
     };
 
     const renderClassDetail = () => {
@@ -204,7 +255,7 @@ export default function LecturerPortal() {
                     <div onClick={() => setClassSubTab('ATTENDANCE')} style={{ padding: '10px 15px', cursor: 'pointer', fontWeight: 'bold', borderBottom: classSubTab === 'ATTENDANCE' ? '3px solid #6f42c1' : '3px solid transparent', color: classSubTab === 'ATTENDANCE' ? '#6f42c1' : '#666', whiteSpace: 'nowrap' }}>
                         <FaQrcode /> Điểm danh QR
                     </div>
-                    <div onClick={() => setClassSubTab('ASSIGNMENTS')} style={{ padding: '10px 15px', cursor: 'pointer', fontWeight: 'bold', borderBottom: classSubTab === 'ASSIGNMENTS' ? '3px solid #28a745' : '3px solid transparent', color: classSubTab === 'ASSIGNMENTS' ? '#28a745' : '#666', whiteSpace: 'nowrap' }}>
+                    <div onClick={() => {setClassSubTab('ASSIGNMENTS'); setActiveAssignmentId(null);}} style={{ padding: '10px 15px', cursor: 'pointer', fontWeight: 'bold', borderBottom: classSubTab === 'ASSIGNMENTS' ? '3px solid #28a745' : '3px solid transparent', color: classSubTab === 'ASSIGNMENTS' ? '#28a745' : '#666', whiteSpace: 'nowrap' }}>
                         <FaTasks /> Bài tập ({assignments.length})
                     </div>
                     <div onClick={() => setClassSubTab('ANALYTICS')} style={{ padding: '10px 15px', cursor: 'pointer', fontWeight: 'bold', borderBottom: classSubTab === 'ANALYTICS' ? '3px solid #17a2b8' : '3px solid transparent', color: classSubTab === 'ANALYTICS' ? '#17a2b8' : '#666', whiteSpace: 'nowrap' }}>
@@ -331,25 +382,101 @@ export default function LecturerPortal() {
                     </div>
                 )}
 
+                {/* TAB BÀI TẬP VÀ XEM BÀI NỘP */}
                 {classSubTab === 'ASSIGNMENTS' && (
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '20px' }}>
-                        <div style={{ backgroundColor: '#f8f9fa', padding: '20px', borderRadius: '8px' }}>
-                            <h4 style={{ margin: '0 0 15px 0' }}>Giao Bài tập mới</h4>
-                            <form onSubmit={handleCreateAssignment} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-                                <input type="text" placeholder="Tên bài tập..." required value={newAssignment.title} onChange={e => setNewAssignment({...newAssignment, title: e.target.value})} style={{ padding: '10px', borderRadius: '4px', border: '1px solid #ccc' }} />
-                                <input type="datetime-local" required value={newAssignment.deadline} onChange={e => setNewAssignment({...newAssignment, deadline: e.target.value})} style={{ padding: '10px', borderRadius: '4px', border: '1px solid #ccc' }} />
-                                <textarea rows="4" placeholder="Mô tả..." required value={newAssignment.description} onChange={e => setNewAssignment({...newAssignment, description: e.target.value})} style={{ padding: '10px', borderRadius: '4px', border: '1px solid #ccc' }} />
-                                <button type="submit" style={{ padding: '10px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer' }}><FaPaperPlane /> Giao Bài Tập</button>
-                            </form>
-                        </div>
-                        <div>
-                            {assignments.map(a => (
-                                <div key={a.id} style={{ backgroundColor: 'white', border: '1px solid #eee', padding: '15px', borderRadius: '8px', marginBottom: '10px', borderLeft: '4px solid #28a745', display: 'flex', justifyContent: 'space-between' }}>
-                                    <div><h4>{a.title}</h4><span style={{color: 'red'}}>Hạn: {new Date(a.deadline).toLocaleString('vi-VN')}</span></div>
-                                    <div style={{backgroundColor: '#eef2ff', padding: '10px', borderRadius: '8px', textAlign: 'center'}}><h3>{a.submittedCount}</h3><span>Bài nộp</span></div>
+                    <div>
+                        {activeAssignmentId && submissionDetails ? (
+                            /* MÀN HÌNH 2: CHI TIẾT BÀI NỘP */
+                            <div style={{ animation: 'fadeIn 0.3s' }}>
+                                <button onClick={() => setActiveAssignmentId(null)} style={{ background: 'none', border: 'none', color: '#006666', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '20px', padding: 0 }}>
+                                    <FaArrowLeft /> Trở về danh sách Bài tập
+                                </button>
+                                
+                                <div style={{ backgroundColor: '#f8f9fa', padding: '20px', borderRadius: '8px', borderLeft: '5px solid #006666', marginBottom: '20px' }}>
+                                    <h2 style={{ margin: '0 0 10px 0', color: '#333' }}>{submissionDetails.assignmentTitle}</h2>
+                                    <span style={{ color: '#dc3545', fontWeight: 'bold', fontSize: '14px' }}>Hạn chót: {submissionDetails.deadline ? new Date(submissionDetails.deadline).toLocaleString('vi-VN') : 'Không giới hạn'}</span>
                                 </div>
-                            ))}
-                        </div>
+
+                                <table style={{ width: '100%', borderCollapse: 'collapse', backgroundColor: 'white', borderRadius: '8px', overflow: 'hidden', boxShadow: '0 2px 10px rgba(0,0,0,0.05)' }}>
+                                    <thead style={{ backgroundColor: '#006666', color: 'white' }}>
+                                        <tr>
+                                            <th style={{ padding: '15px', textAlign: 'left' }}>MSSV</th>
+                                            <th style={{ padding: '15px', textAlign: 'left' }}>Họ và Tên</th>
+                                            <th style={{ padding: '15px', textAlign: 'center' }}>Trạng thái</th>
+                                            <th style={{ padding: '15px', textAlign: 'center' }}>Bài làm</th>
+                                            <th style={{ padding: '15px', textAlign: 'center' }}>Chấm điểm</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {submissionDetails.submissions.map((sub, idx) => (
+                                            <tr key={idx} style={{ borderBottom: '1px solid #eee' }}>
+                                                <td style={{ padding: '15px', fontWeight: 'bold', color: '#555' }}>{sub.studentCode}</td>
+                                                <td style={{ padding: '15px' }}>{sub.fullName}</td>
+                                                <td style={{ padding: '15px', textAlign: 'center' }}>
+                                                    {sub.status === 'ON_TIME' && <span style={{ backgroundColor: '#d4edda', color: '#155724', padding: '5px 10px', borderRadius: '15px', fontSize: '12px', fontWeight: 'bold' }}>Đúng hạn</span>}
+                                                    {sub.status === 'LATE' && <span style={{ backgroundColor: '#fff3cd', color: '#856404', padding: '5px 10px', borderRadius: '15px', fontSize: '12px', fontWeight: 'bold' }}>Nộp trễ</span>}
+                                                    {sub.status === 'MISSING' && <span style={{ backgroundColor: '#f8d7da', color: '#721c24', padding: '5px 10px', borderRadius: '15px', fontSize: '12px', fontWeight: 'bold' }}>Chưa nộp</span>}
+                                                </td>
+                                                <td style={{ padding: '15px', textAlign: 'center' }}>
+                                                    {sub.fileUrl ? (
+                                                        <a href={sub.fileUrl} target="_blank" rel="noreferrer" style={{ color: '#007bff', textDecoration: 'none', fontWeight: 'bold' }}>🔗 Xem File</a>
+                                                    ) : <span style={{ color: '#ccc' }}>-</span>}
+                                                </td>
+                                                <td style={{ padding: '15px', textAlign: 'center' }}>
+                                                    {sub.status !== 'MISSING' ? (
+                                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px' }}>
+                                                            <input 
+                                                                type="number" min="0" max="10" step="0.5"
+                                                                value={gradeInputs[sub.submissionId] || ''}
+                                                                onChange={(e) => setGradeInputs({...gradeInputs, [sub.submissionId]: e.target.value})}
+                                                                style={{ width: '60px', padding: '5px', borderRadius: '4px', border: '1px solid #ccc', textAlign: 'center' }}
+                                                                placeholder="0-10"
+                                                            />
+                                                            <button onClick={() => handleSaveGrade(sub.submissionId)} style={{ backgroundColor: '#006666', color: 'white', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
+                                                                Lưu
+                                                            </button>
+                                                        </div>
+                                                    ) : <span style={{ color: '#ccc', fontStyle: 'italic' }}>Không thể chấm</span>}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        ) : (
+                            /* MÀN HÌNH 1: DANH SÁCH BÀI TẬP VÀ FORM GIAO BÀI */
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '20px', animation: 'fadeIn 0.3s' }}>
+                                <div style={{ backgroundColor: '#f8f9fa', padding: '20px', borderRadius: '8px' }}>
+                                    <h4 style={{ margin: '0 0 15px 0' }}>Giao Bài tập mới</h4>
+                                    <form onSubmit={handleCreateAssignment} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                                        <input type="text" placeholder="Tên bài tập..." required value={newAssignment.title} onChange={e => setNewAssignment({...newAssignment, title: e.target.value})} style={{ padding: '10px', borderRadius: '4px', border: '1px solid #ccc' }} />
+                                        <input type="datetime-local" required value={newAssignment.deadline} onChange={e => setNewAssignment({...newAssignment, deadline: e.target.value})} style={{ padding: '10px', borderRadius: '4px', border: '1px solid #ccc' }} />
+                                        <textarea rows="4" placeholder="Mô tả..." required value={newAssignment.description} onChange={e => setNewAssignment({...newAssignment, description: e.target.value})} style={{ padding: '10px', borderRadius: '4px', border: '1px solid #ccc' }} />
+                                        <button type="submit" style={{ padding: '10px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer' }}><FaPaperPlane /> Giao Bài Tập</button>
+                                    </form>
+                                </div>
+                                <div>
+                                    {assignments.map(a => (
+                                        <div key={a.id} style={{ backgroundColor: 'white', border: '1px solid #eee', padding: '20px', borderRadius: '8px', marginBottom: '15px', borderLeft: '5px solid #ffc107', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <div>
+                                                <h3 style={{ margin: '0 0 5px 0', color: '#333' }}>{a.title}</h3>
+                                                <p style={{ margin: '0 0 10px 0', color: '#555', fontSize: '14px' }}>{a.description}</p>
+                                                <span style={{ fontSize: '13px', color: '#dc3545', fontWeight: 'bold' }}>Hạn chót: {a.deadline ? new Date(a.deadline).toLocaleString('vi-VN') : 'Không giới hạn'}</span>
+                                            </div>
+                                            <div style={{ textAlign: 'right' }}>
+                                                <div style={{ marginBottom: '10px', fontSize: '14px', color: '#006666', fontWeight: 'bold' }}>
+                                                    Đã nộp: {a.submittedCount} SV
+                                                </div>
+                                                <button onClick={() => handleViewSubmissions(a.id)} style={{ backgroundColor: '#f8f9fa', border: '1px solid #006666', color: '#006666', padding: '8px 15px', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer' }}>
+                                                    Xem Bài Nộp
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                    {assignments.length === 0 && <p style={{ textAlign: 'center', color: '#888' }}>Chưa có bài tập nào được giao.</p>}
+                                </div>
+                            </div>
+                        )}
                     </div>
                 )}
 
@@ -357,7 +484,7 @@ export default function LecturerPortal() {
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '20px' }}>
                         <div style={{ backgroundColor: '#f8f9fa', padding: '20px', borderRadius: '8px' }}>
                             <form onSubmit={handleSendAnnouncement} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-                                <input type="text" placeholder="Tiêu đề..." required value={newAnnouncement.title} onChange={e => setNewAnnouncement({...newAnnouncement, title: e.target.value})} style={{ padding: '10px', borderRadius: '4px', border: '1px solid #ccc' }} />
+                                <input type="text" placeholder="Tiêu đề..." required value={newAnnouncement.title} onChange={e => setNewAssignment({...newAnnouncement, title: e.target.value})} style={{ padding: '10px', borderRadius: '4px', border: '1px solid #ccc' }} />
                                 <textarea rows="5" placeholder="Nội dung..." required value={newAnnouncement.content} onChange={e => setNewAnnouncement({...newAnnouncement, content: e.target.value})} style={{ padding: '10px', borderRadius: '4px', border: '1px solid #ccc' }} />
                                 <button type="submit" style={{ padding: '10px', backgroundColor: '#1A237E', color: 'white', border: 'none', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer' }}><FaPaperPlane /> Gửi</button>
                             </form>

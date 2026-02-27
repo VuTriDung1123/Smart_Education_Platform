@@ -1,9 +1,11 @@
 package com.sep.core_service.controller;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -18,10 +20,14 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.sep.core_service.entity.Assignment;
+import com.sep.core_service.entity.AssignmentSubmission;
 import com.sep.core_service.entity.Classroom;
+import com.sep.core_service.entity.Enrollment;
+import com.sep.core_service.entity.User;
 import com.sep.core_service.repository.AssignmentRepository;
 import com.sep.core_service.repository.AssignmentSubmissionRepository;
 import com.sep.core_service.repository.ClassroomRepository;
+import com.sep.core_service.repository.EnrollmentRepository;
 import com.sep.core_service.repository.ThesisTopicRepository;
 
 @RestController
@@ -30,13 +36,14 @@ public class LecturerAcademicController {
 
     @Autowired private ClassroomRepository classroomRepository;
     @Autowired private ThesisTopicRepository thesisTopicRepository;
-    
-    // 🔥 ĐÃ THÊM REPOSITORY ĐỂ LƯU XUỐNG DB THẬT
     @Autowired private AssignmentRepository assignmentRepository;
     @Autowired private AssignmentSubmissionRepository submissionRepository;
+    
+    // Thêm Repo này để lấy danh sách sinh viên đối chiếu ai nộp ai chưa
+    @Autowired private EnrollmentRepository enrollmentRepository;
 
     // ==========================================
-    // 1. QUẢN LÝ BÀI TẬP (DB THẬT 100%)
+    // 1. QUẢN LÝ BÀI TẬP (GIAO BÀI)
     // ==========================================
     @GetMapping("/classes/{classId}/assignments")
     public ResponseEntity<?> getAssignments(@PathVariable UUID classId) {
@@ -46,8 +53,6 @@ public class LecturerAcademicController {
             map.put("title", a.getTitle());
             map.put("description", a.getDescription());
             map.put("deadline", a.getDeadline() != null ? a.getDeadline().toString() : null);
-            
-            // Đếm số lượng sinh viên đã nộp bài thật
             map.put("submittedCount", submissionRepository.findByAssignmentId(a.getId()).size());
             return map;
         }).collect(Collectors.toList());
@@ -75,7 +80,74 @@ public class LecturerAcademicController {
     }
 
     // ==========================================
-    // 2. QUẢN LÝ ĐỒ ÁN / KHÓA LUẬN (Giữ nguyên)
+    // 🔥 2. XEM CHI TIẾT BÀI NỘP CỦA 1 BÀI TẬP (TÍNH NĂNG MỚI)
+    // ==========================================
+    @GetMapping("/assignments/{assignmentId}/submissions")
+    public ResponseEntity<?> getAssignmentSubmissions(@PathVariable UUID assignmentId) {
+        Assignment assignment = assignmentRepository.findById(assignmentId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy bài tập!"));
+
+        // Lấy danh sách toàn bộ sinh viên trong lớp đó
+        List<Enrollment> enrollments = enrollmentRepository.findByCourseClassId(assignment.getClassroom().getId());
+
+        // Lấy danh sách các bài đã nộp của bài tập này
+        List<AssignmentSubmission> submissions = submissionRepository.findByAssignmentId(assignmentId);
+
+        List<Map<String, Object>> result = new ArrayList<>();
+        
+        for (Enrollment e : enrollments) {
+            User studentUser = e.getStudent().getUser();
+            Map<String, Object> map = new HashMap<>();
+            map.put("studentId", studentUser.getId());
+            map.put("studentCode", studentUser.getStudentCode() != null ? studentUser.getStudentCode() : "Chưa có MSSV");
+            map.put("fullName", studentUser.getFullName());
+
+            // Tìm bài nộp của sinh viên này
+            Optional<AssignmentSubmission> subOpt = submissions.stream()
+                    .filter(s -> s.getStudent().getId().equals(e.getStudent().getId()))
+                    .findFirst();
+
+            if (subOpt.isPresent()) {
+                AssignmentSubmission sub = subOpt.get();
+                map.put("submissionId", sub.getId());
+                map.put("status", sub.getStatus()); // ON_TIME hoặc LATE
+                map.put("fileUrl", sub.getFileUrl());
+                map.put("submittedAt", sub.getSubmittedAt().toString());
+                map.put("score", sub.getScore());
+            } else {
+                map.put("status", "MISSING"); // Chưa nộp
+                map.put("fileUrl", null);
+                map.put("submittedAt", null);
+                map.put("score", null);
+            }
+            result.add(map);
+        }
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("assignmentTitle", assignment.getTitle());
+        response.put("deadline", assignment.getDeadline() != null ? assignment.getDeadline().toString() : null);
+        response.put("submissions", result);
+
+        return ResponseEntity.ok(response);
+    }
+
+    // ==========================================
+    // 🔥 3. CHẤM ĐIỂM BÀI TẬP TRỰC TIẾP
+    // ==========================================
+    @PutMapping("/submissions/{submissionId}/grade")
+    public ResponseEntity<?> gradeSubmission(@PathVariable UUID submissionId, @RequestBody Map<String, Double> payload) {
+        AssignmentSubmission submission = submissionRepository.findById(submissionId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy bài nộp!"));
+        
+        Double score = payload.get("score");
+        submission.setScore(score);
+        submissionRepository.save(submission);
+        
+        return ResponseEntity.ok("✅ Đã lưu điểm thành công!");
+    }
+
+    // ==========================================
+    // 4. QUẢN LÝ ĐỒ ÁN / KHÓA LUẬN
     // ==========================================
     @GetMapping("/{lecturerId}/theses")
     public ResponseEntity<?> getMyTheses(@PathVariable UUID lecturerId) {
