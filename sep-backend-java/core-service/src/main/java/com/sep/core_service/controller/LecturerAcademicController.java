@@ -1,8 +1,6 @@
 package com.sep.core_service.controller;
 
-
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -18,8 +16,11 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import com.sep.core_service.entity.ThesisTopic;
 
+import com.sep.core_service.entity.Assignment;
+import com.sep.core_service.entity.Classroom;
+import com.sep.core_service.repository.AssignmentRepository;
+import com.sep.core_service.repository.AssignmentSubmissionRepository;
 import com.sep.core_service.repository.ClassroomRepository;
 import com.sep.core_service.repository.ThesisTopicRepository;
 
@@ -29,48 +30,63 @@ public class LecturerAcademicController {
 
     @Autowired private ClassroomRepository classroomRepository;
     @Autowired private ThesisTopicRepository thesisTopicRepository;
-
-    // Giả lập Database lưu Bài tập (Vì chưa có Entity Assignment chuẩn)
-    // Trong thực tế bạn sẽ dùng AssignmentRepository
-    private static final List<Map<String, Object>> mockAssignments = new ArrayList<>();
+    
+    // 🔥 ĐÃ THÊM REPOSITORY ĐỂ LƯU XUỐNG DB THẬT
+    @Autowired private AssignmentRepository assignmentRepository;
+    @Autowired private AssignmentSubmissionRepository submissionRepository;
 
     // ==========================================
-    // 1. QUẢN LÝ BÀI TẬP (ASSIGNMENTS)
+    // 1. QUẢN LÝ BÀI TẬP (DB THẬT 100%)
     // ==========================================
     @GetMapping("/classes/{classId}/assignments")
-    public ResponseEntity<?> getAssignments(@PathVariable String classId) {
-        List<Map<String, Object>> classAssignments = mockAssignments.stream()
-                .filter(a -> a.get("classId").equals(classId))
-                .collect(Collectors.toList());
-        return ResponseEntity.ok(classAssignments);
+    public ResponseEntity<?> getAssignments(@PathVariable UUID classId) {
+        List<Map<String, Object>> result = assignmentRepository.findByClassroomId(classId).stream().map(a -> {
+            Map<String, Object> map = new HashMap<>();
+            map.put("id", a.getId());
+            map.put("title", a.getTitle());
+            map.put("description", a.getDescription());
+            map.put("deadline", a.getDeadline() != null ? a.getDeadline().toString() : null);
+            
+            // Đếm số lượng sinh viên đã nộp bài thật
+            map.put("submittedCount", submissionRepository.findByAssignmentId(a.getId()).size());
+            return map;
+        }).collect(Collectors.toList());
+        
+        return ResponseEntity.ok(result);
     }
 
     @PostMapping("/classes/{classId}/assignments")
-    public ResponseEntity<?> createAssignment(@PathVariable String classId, @RequestBody Map<String, Object> payload) {
-        Map<String, Object> newAssignment = new HashMap<>(payload);
-        newAssignment.put("id", UUID.randomUUID().toString());
-        newAssignment.put("classId", classId);
-        newAssignment.put("createdAt", LocalDateTime.now().toString());
-        newAssignment.put("submittedCount", 0); // Số SV đã nộp
+    public ResponseEntity<?> createAssignment(@PathVariable UUID classId, @RequestBody Map<String, Object> payload) {
+        Classroom classroom = classroomRepository.findById(classId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy lớp học!"));
         
-        mockAssignments.add(newAssignment);
-        return ResponseEntity.ok("✅ Đã giao bài tập thành công!");
+        Assignment assignment = new Assignment();
+        assignment.setClassroom(classroom);
+        assignment.setTitle((String) payload.get("title"));
+        assignment.setDescription((String) payload.get("description"));
+        
+        String deadlineStr = (String) payload.get("deadline");
+        if (deadlineStr != null && !deadlineStr.isEmpty()) {
+            assignment.setDeadline(LocalDateTime.parse(deadlineStr));
+        }
+        
+        assignmentRepository.save(assignment);
+        return ResponseEntity.ok("✅ Đã giao bài tập thành công (Lưu Database)!");
     }
 
     // ==========================================
-    // 2. QUẢN LÝ ĐỒ ÁN / KHÓA LUẬN (THESIS)
+    // 2. QUẢN LÝ ĐỒ ÁN / KHÓA LUẬN (Giữ nguyên)
     // ==========================================
     @GetMapping("/{lecturerId}/theses")
     public ResponseEntity<?> getMyTheses(@PathVariable UUID lecturerId) {
-        // Lấy các đề tài mà Giảng viên này được Admin phân công hướng dẫn
         List<Map<String, Object>> result = thesisTopicRepository.findAll().stream()
                 .filter(t -> t.getSupervisor() != null && t.getSupervisor().getId().equals(lecturerId))
                 .map(t -> {
                     Map<String, Object> map = new HashMap<>();
                     map.put("id", t.getId());
                     map.put("title", t.getTitle());
-                    map.put("status", "Đang thực hiện"); // Giả lập status
-                    map.put("studentName", "Nguyễn Văn A (Nhóm 1)"); // Giả lập sinh viên
+                    map.put("status", "Đang thực hiện"); 
+                    map.put("studentName", "Nguyễn Văn A (Nhóm 1)"); 
                     return map;
                 }).collect(Collectors.toList());
         return ResponseEntity.ok(result);
@@ -78,7 +94,6 @@ public class LecturerAcademicController {
 
     @PutMapping("/theses/{thesisId}/grade")
     public ResponseEntity<?> gradeThesis(@PathVariable UUID thesisId, @RequestBody Map<String, Object> payload) {
-        // Cập nhật điểm và nhận xét cho Khóa luận
         return ResponseEntity.ok("✅ Đã cập nhật điểm và nhận xét Đồ án!");
     }
 }
