@@ -1,11 +1,9 @@
 package com.sep.core_service.controller;
 
-import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -22,13 +20,11 @@ import com.sep.core_service.entity.Classroom;
 import com.sep.core_service.entity.Enrollment;
 import com.sep.core_service.entity.GradeComponent;
 import com.sep.core_service.entity.GradeScore;
-import com.sep.core_service.entity.Student;
 import com.sep.core_service.entity.User;
 import com.sep.core_service.repository.ClassroomRepository;
 import com.sep.core_service.repository.EnrollmentRepository;
 import com.sep.core_service.repository.GradeComponentRepository;
 import com.sep.core_service.repository.GradeScoreRepository;
-import com.sep.core_service.repository.StudentRepository;
 import com.sep.core_service.repository.UserRepository;
 
 @RestController
@@ -39,7 +35,6 @@ public class LecturerController {
     @Autowired private GradeScoreRepository gradeScoreRepository;
     @Autowired private GradeComponentRepository componentRepository;
     @Autowired private EnrollmentRepository enrollmentRepository;
-    @Autowired private StudentRepository studentRepository;
     @Autowired private UserRepository userRepository;
 
     @GetMapping("/{lecturerId}/my-classes")
@@ -52,7 +47,10 @@ public class LecturerController {
             map.put("classId", c.getId());
             map.put("classCode", c.getClassCode());
             map.put("subjectName", c.getSubject().getName());
-            map.put("studentCount", c.getStudents() != null ? c.getStudents().size() : 0);
+            
+            // Đếm sĩ số thực tế từ bảng Enrollment
+            int count = enrollmentRepository.findByCourseClassId(c.getId()).size();
+            map.put("studentCount", count);
             return map;
         }).collect(Collectors.toList());
         
@@ -61,66 +59,46 @@ public class LecturerController {
 
     @GetMapping("/classes/{classId}/students")
     public ResponseEntity<?> getStudentsInClass(@PathVariable UUID classId) {
-        Classroom classroom = classroomRepository.findById(classId)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy lớp học"));
-
+        // ĐÃ SỬA: Lấy danh sách Sinh viên từ bảng Enrollment
+        List<Enrollment> enrollments = enrollmentRepository.findByCourseClassId(classId);
         List<Map<String, Object>> studentsData = new ArrayList<>();
 
-        if (classroom.getStudents() != null) {
-            for (User user : classroom.getStudents()) {
-                Map<String, Object> sMap = new HashMap<>();
-                sMap.put("studentId", user.getId());
-                sMap.put("studentCode", user.getStudentCode() != null ? user.getStudentCode() : "Chưa có MSSV");
-                sMap.put("fullName", user.getFullName());
+        for (Enrollment e : enrollments) {
+            User user = e.getStudent().getUser();
+            Map<String, Object> sMap = new HashMap<>();
+            sMap.put("studentId", user.getId());
+            sMap.put("studentCode", user.getStudentCode() != null ? user.getStudentCode() : "Chưa có MSSV");
+            sMap.put("fullName", user.getFullName());
 
-                Double processScore = null;
-                Double finalScore = null;
+            Double processScore = null;
+            Double finalScore = null;
 
-                List<Enrollment> enrollments = enrollmentRepository.findByStudent_User_Id(user.getId());
-                Optional<Enrollment> currentEnrollment = enrollments.stream()
-                        .filter(e -> e.getCourseClass().getSubject().getId().equals(classroom.getSubject().getId()))
-                        .findFirst();
-
-                if (currentEnrollment.isPresent()) {
-                    List<GradeScore> scores = gradeScoreRepository.findByEnrollmentId(currentEnrollment.get().getId());
-                    for (GradeScore gs : scores) {
-                        if (gs.getComponent().getName().toUpperCase().contains("QUÁ TRÌNH")) {
-                            processScore = gs.getScore();
-                        } else if (gs.getComponent().getName().toUpperCase().contains("THI")) {
-                            finalScore = gs.getScore();
-                        }
-                    }
+            List<GradeScore> scores = gradeScoreRepository.findByEnrollmentId(e.getId());
+            for (GradeScore gs : scores) {
+                if (gs.getComponent().getName().toUpperCase().contains("QUÁ TRÌNH")) {
+                    processScore = gs.getScore();
+                } else if (gs.getComponent().getName().toUpperCase().contains("THI")) {
+                    finalScore = gs.getScore();
                 }
-
-                sMap.put("processScore", processScore);
-                sMap.put("finalScore", finalScore);
-                studentsData.add(sMap);
             }
+
+            sMap.put("processScore", processScore);
+            sMap.put("finalScore", finalScore);
+            studentsData.add(sMap);
         }
+        
         return ResponseEntity.ok(studentsData);
     }
 
     @PostMapping("/classes/{classId}/students/{studentId}/grades")
     public ResponseEntity<?> saveGrades(@PathVariable UUID classId, @PathVariable UUID studentId, @RequestBody Map<String, Double> payload) {
         Classroom classroom = classroomRepository.findById(classId).orElseThrow();
-        User user = classroom.getStudents().stream().filter(u -> u.getId().equals(studentId)).findFirst()
-                .orElseThrow(() -> new RuntimeException("Sinh viên không thuộc lớp này"));
-
-        Student student = studentRepository.findById(studentId).orElseGet(() -> {
-            Student s = new Student(); s.setUser(user); 
-            s.setStudentCode(user.getStudentCode()); s.setEnrollmentYear(2023); 
-            return studentRepository.save(s);
-        });
-
-        // Bỏ logic gọi CourseClass, nối thẳng vào Classroom hiện tại
+        
+        // Kiểm tra Sinh viên có đăng ký lớp này thật không
         Enrollment enrollment = enrollmentRepository.findByStudent_User_Id(studentId).stream()
                 .filter(e -> e.getCourseClass().getId().equals(classroom.getId()))
                 .findFirst()
-                .orElseGet(() -> {
-                    Enrollment e = new Enrollment();
-                    e.setStudent(student); e.setCourseClass(classroom);
-                    return enrollmentRepository.save(e);
-                });
+                .orElseThrow(() -> new RuntimeException("Sinh viên không thuộc lớp này (Chưa đăng ký)"));
 
         GradeComponent processComp = componentRepository.findAll().stream().filter(c -> c.getName().contains("QUÁ TRÌNH")).findFirst().orElseGet(() -> {
             GradeComponent gc = new GradeComponent(); gc.setName("ĐIỂM QUÁ TRÌNH"); gc.setWeight(0.4); return componentRepository.save(gc);
