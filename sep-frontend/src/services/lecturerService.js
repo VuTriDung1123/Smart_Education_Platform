@@ -2,7 +2,6 @@ import axiosClient from '../api/axiosClient';
 
 const lecturerService = {
     getMyClasses: async (lecturerId) => { 
-        // Thêm lecturerId vào url
         const response = await axiosClient.get(`/lecturer/${lecturerId}/my-classes`);
         return response.data;
     },
@@ -15,7 +14,6 @@ const lecturerService = {
         return response.data;
     },
 
-    // 🔥 CÁC HÀM MỚI COMBO 1
     getAnnouncements: async (classId) => {
         const response = await axiosClient.get(`/lecturer/actions/classes/${classId}/announcements`);
         return response.data;
@@ -37,7 +35,6 @@ const lecturerService = {
         return response.data;
     },
 
-    // 🔥 CÁC HÀM MỚI COMBO 2 (BÀI TẬP & ĐỒ ÁN)
     getAssignments: async (classId) => {
         const response = await axiosClient.get(`/lecturer/classes/${classId}/assignments`);
         return response.data;
@@ -54,13 +51,22 @@ const lecturerService = {
         const response = await axiosClient.put(`/lecturer/theses/${thesisId}/grade`, data);
         return response.data;
     },
-    // 🔥 CÁC HÀM MỚI COMBO 3 (QR & ANALYTICS)
     generateQrAttendance: async (classId) => {
         const response = await axiosClient.post(`/lecturer/advanced/classes/${classId}/qr-attendance`);
         return response.data;
     },
     getClassAnalytics: async (classId) => {
         const response = await axiosClient.get(`/lecturer/advanced/classes/${classId}/analytics`);
+        return response.data;
+    },
+
+    // 🔥 2 HÀM MỚI ĐỂ XEM BÀI NỘP VÀ CHẤM ĐIỂM
+    getAssignmentSubmissions: async (assignmentId) => {
+        const response = await axiosClient.get(`/lecturer/assignments/${assignmentId}/submissions`);
+        return response.data;
+    },
+    gradeSubmission: async (submissionId, data) => {
+        const response = await axiosClient.put(`/lecturer/submissions/${submissionId}/grade`, data);
         return response.data;
     }
 };
