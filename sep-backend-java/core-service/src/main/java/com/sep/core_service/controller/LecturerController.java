@@ -11,8 +11,6 @@ import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -21,19 +19,17 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.sep.core_service.entity.Classroom;
-import com.sep.core_service.entity.CourseClass;
 import com.sep.core_service.entity.Enrollment;
 import com.sep.core_service.entity.GradeComponent;
 import com.sep.core_service.entity.GradeScore;
 import com.sep.core_service.entity.Student;
 import com.sep.core_service.entity.User;
 import com.sep.core_service.repository.ClassroomRepository;
-import com.sep.core_service.repository.CourseClassRepository;
 import com.sep.core_service.repository.EnrollmentRepository;
 import com.sep.core_service.repository.GradeComponentRepository;
 import com.sep.core_service.repository.GradeScoreRepository;
 import com.sep.core_service.repository.StudentRepository;
-import com.sep.core_service.repository.UserRepository; // Thêm dòng này
+import com.sep.core_service.repository.UserRepository;
 
 @RestController
 @RequestMapping("/api/lecturer")
@@ -43,17 +39,11 @@ public class LecturerController {
     @Autowired private GradeScoreRepository gradeScoreRepository;
     @Autowired private GradeComponentRepository componentRepository;
     @Autowired private EnrollmentRepository enrollmentRepository;
-    @Autowired private CourseClassRepository courseClassRepository;
     @Autowired private StudentRepository studentRepository;
-    @Autowired private UserRepository userRepository; // Thêm dòng này
+    @Autowired private UserRepository userRepository;
 
-    // ==========================================
-    // 1. LẤY DANH SÁCH LỚP HỌC (Sử dụng PathVariable)
-    // ==========================================
-    @GetMapping("/{lecturerId}/my-classes") // Đổi endpoint
+    @GetMapping("/{lecturerId}/my-classes")
     public ResponseEntity<?> getMyClasses(@PathVariable UUID lecturerId) {
-        
-        // Không dùng SecurityContextHolder nữa, lấy trực tiếp từ DB
         User currentLecturer = userRepository.findById(lecturerId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy Giảng viên"));
 
@@ -69,9 +59,6 @@ public class LecturerController {
         return ResponseEntity.ok(result);
     }
 
-    // ==========================================
-    // 2. LẤY DANH SÁCH SINH VIÊN & ĐIỂM
-    // ==========================================
     @GetMapping("/classes/{classId}/students")
     public ResponseEntity<?> getStudentsInClass(@PathVariable UUID classId) {
         Classroom classroom = classroomRepository.findById(classId)
@@ -113,9 +100,6 @@ public class LecturerController {
         return ResponseEntity.ok(studentsData);
     }
 
-    // ==========================================
-    // 3. API CHẤM ĐIỂM
-    // ==========================================
     @PostMapping("/classes/{classId}/students/{studentId}/grades")
     public ResponseEntity<?> saveGrades(@PathVariable UUID classId, @PathVariable UUID studentId, @RequestBody Map<String, Double> payload) {
         Classroom classroom = classroomRepository.findById(classId).orElseThrow();
@@ -128,22 +112,13 @@ public class LecturerController {
             return studentRepository.save(s);
         });
 
-        CourseClass courseClass = courseClassRepository.findAll().stream()
-                .filter(cc -> cc.getSubject().getId().equals(classroom.getSubject().getId()))
-                .findFirst()
-                .orElseGet(() -> {
-                    CourseClass cc = new CourseClass();
-                    cc.setSubject(classroom.getSubject());
-                    cc.setSemester("HK1"); cc.setAcademicYear("2024-2025");
-                    return courseClassRepository.save(cc);
-                });
-
+        // Bỏ logic gọi CourseClass, nối thẳng vào Classroom hiện tại
         Enrollment enrollment = enrollmentRepository.findByStudent_User_Id(studentId).stream()
-                .filter(e -> e.getCourseClass().getId().equals(courseClass.getId()))
+                .filter(e -> e.getCourseClass().getId().equals(classroom.getId()))
                 .findFirst()
                 .orElseGet(() -> {
                     Enrollment e = new Enrollment();
-                    e.setStudent(student); e.setCourseClass(courseClass); e.setEnrollmentDate(LocalDate.now());
+                    e.setStudent(student); e.setCourseClass(classroom);
                     return enrollmentRepository.save(e);
                 });
 

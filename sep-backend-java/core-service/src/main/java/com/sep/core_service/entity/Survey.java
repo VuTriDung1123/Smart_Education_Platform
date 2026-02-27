@@ -1,12 +1,20 @@
 package com.sep.core_service.entity;
 
-import jakarta.persistence.*;
-import lombok.Getter;
-import lombok.Setter;
-import org.hibernate.annotations.CreationTimestamp;
-import org.hibernate.annotations.GenericGenerator;
 import java.time.LocalDateTime;
 import java.util.UUID;
+
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.GenericGenerator;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
+import lombok.Getter;
+import lombok.Setter;
 
 @Entity
 @Table(name = "surveys")
@@ -17,9 +25,10 @@ public class Survey {
     @GenericGenerator(name = "UUID", strategy = "org.hibernate.id.UUIDGenerator")
     private UUID id;
 
+    // ĐÃ ĐỔI KIỂU DỮ LIỆU THÀNH Classroom
     @ManyToOne
     @JoinColumn(name = "class_id", nullable = false)
-    private CourseClass courseClass;
+    private Classroom courseClass;
 
     @Column(nullable = false, length = 200)
     private String title;

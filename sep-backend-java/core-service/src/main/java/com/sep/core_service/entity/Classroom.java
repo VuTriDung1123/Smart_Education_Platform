@@ -28,19 +28,16 @@ public class Classroom {
     private UUID id;
 
     @Column(nullable = false, unique = true)
-    private String classCode; // Mã lớp (VD: IT01-GT1)
+    private String classCode;
 
-    // Liên kết với Môn học
     @ManyToOne
     @JoinColumn(name = "subject_id", nullable = false)
     private Subject subject;
 
-    // Liên kết với 1 Giảng viên phụ trách
     @ManyToOne
     @JoinColumn(name = "lecturer_id")
     private User lecturer;
 
-    // Danh sách Sinh viên (Sẽ dùng code logic để chặn tối đa 10 người)
     @ManyToMany
     @JoinTable(
         name = "classroom_students",
@@ -48,4 +45,18 @@ public class Classroom {
         inverseJoinColumns = @JoinColumn(name = "student_id")
     )
     private Set<User> students;
+
+    // 🔥 CÁC TRƯỜNG ĐƯỢC GỘP TỪ COURSECLASS SANG ĐỂ QUẢN LÝ LỊCH HỌC
+    @Column(length = 20)
+    private String semester = "HK1";
+    
+    @Column(length = 20)
+    private String academicYear = "2024-2025";
+    
+    private String status = "OPEN";
+    private Integer dayOfWeek;
+    private Integer session;
+    private String tiet;
+    private String time;
+    private String room;
 }
