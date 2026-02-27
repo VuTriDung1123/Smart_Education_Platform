@@ -46,20 +46,30 @@ public class StudentController {
     private Student getCurrentStudent() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         User user = userRepository.findByUsername(auth.getName()).orElseThrow();
-        return studentRepository.findById(user.getId()).orElseThrow();
+        return studentRepository.findById(user.getId()).orElseGet(() -> {
+            Student newStudent = new Student();
+            newStudent.setUser(user);
+            newStudent.setStudentCode(user.getStudentCode() != null ? user.getStudentCode() : "SV_CHUA_CAP_NHAT");
+            newStudent.setEnrollmentYear(2023); 
+            newStudent.setAcademicStatus("STUDYING");
+            return studentRepository.save(newStudent);
+        });
     }
 
     // ==========================================
-    // CÁC API LẤY DANH SÁCH LỚP, ĐIỂM, THÔNG BÁO
+    // 1. LẤY DANH SÁCH LỚP (ĐÃ CHUYỂN SANG DÙNG BẢNG ENROLLMENT)
     // ==========================================
     @GetMapping("/my-classes")
     public ResponseEntity<?> getMyClasses() {
-        User currentStudent = getCurrentStudent().getUser();
-        List<Classroom> classes = classroomRepository.findAll().stream()
-                .filter(c -> c.getStudents() != null && c.getStudents().contains(currentStudent))
+        Student student = getCurrentStudent();
+        
+        // Quét trực tiếp từ bảng Enrollment (Chuẩn xác 100%)
+        List<Enrollment> enrollments = enrollmentRepository.findByStudent_User_Id(student.getId()).stream()
+                .filter(e -> "ENROLLED".equals(e.getStatus()))
                 .collect(Collectors.toList());
 
-        List<Map<String, Object>> result = classes.stream().map(c -> {
+        List<Map<String, Object>> result = enrollments.stream().map(e -> {
+            Classroom c = e.getCourseClass();
             Map<String, Object> map = new HashMap<>();
             map.put("classId", c.getId());
             map.put("classCode", c.getClassCode());
@@ -67,20 +77,20 @@ public class StudentController {
             map.put("lecturerName", c.getLecturer() != null ? c.getLecturer().getFullName() : "Chưa phân công");
             return map;
         }).collect(Collectors.toList());
+        
         return ResponseEntity.ok(result);
     }
 
     @GetMapping("/classes/{classId}/grades")
     public ResponseEntity<?> getMyGrades(@PathVariable UUID classId) {
         User currentStudent = getCurrentStudent().getUser();
-        Classroom classroom = classroomRepository.findById(classId).orElseThrow();
 
         Map<String, Double> grades = new HashMap<>();
         grades.put("processScore", null);
         grades.put("finalScore", null);
 
         Optional<Enrollment> currentEnrollment = enrollmentRepository.findByStudent_User_Id(currentStudent.getId()).stream()
-                .filter(e -> e.getCourseClass().getSubject().getId().equals(classroom.getSubject().getId()))
+                .filter(e -> e.getCourseClass().getId().equals(classId)) // So sánh bằng ClassId
                 .findFirst();
 
         if (currentEnrollment.isPresent()) {
@@ -99,57 +109,43 @@ public class StudentController {
     }
 
     // ==========================================
-    // 🔥 DASHBOARD NĂNG LỰC HỌC TẬP (DB THẬT 100%)
+    // 🔥 DASHBOARD NĂNG LỰC HỌC TẬP
     // ==========================================
     @GetMapping("/dashboard")
     public ResponseEntity<?> getDashboard() {
         Student student = getCurrentStudent();
-        
-        // 1. Lấy toàn bộ lịch sử điểm của sinh viên này
         List<StudentSubjectGrade> grades = studentSubjectGradeRepository.findByStudentId(student.getId());
 
         double totalScore4 = 0;
         int totalCredits = 0;
         int passedCredits = 0;
-        
-        // Map dùng để gom nhóm điểm theo Thể loại môn (Category) vẽ Radar chart
         Map<String, double[]> categoryStats = new HashMap<>();
 
         for (StudentSubjectGrade g : grades) {
-            int credits = g.getCreditsAtTime();
+            int credits = g.getCreditsAtTime() != null ? g.getCreditsAtTime() : 0;
             totalCredits += credits;
             totalScore4 += (g.getScore4() != null ? g.getScore4() : 0) * credits;
 
-            // Môn qua môn (Điểm hệ 10 >= 4.0)
-            if (g.getScore10() != null && g.getScore10() >= 4.0) {
-                passedCredits += credits;
-            }
+            if (g.getScore10() != null && g.getScore10() >= 4.0) passedCredits += credits;
 
-            // Gom điểm theo Category (Lập trình, Tiếng Anh, Toán...)
             String category = g.getSubject().getCategory();
             if (category == null || category.isEmpty()) category = "Khác";
 
             categoryStats.putIfAbsent(category, new double[]{0, 0});
-            categoryStats.get(category)[0] += (g.getScore10() != null ? g.getScore10() : 0); // Tổng điểm
-            categoryStats.get(category)[1] += 1; // Số lượng môn trong category
+            categoryStats.get(category)[0] += (g.getScore10() != null ? g.getScore10() : 0); 
+            categoryStats.get(category)[1] += 1; 
         }
 
-        // 2. Tính GPA (Thang điểm 4)
         double gpa = totalCredits > 0 ? (totalScore4 / totalCredits) : 0.0;
-        gpa = Math.round(gpa * 100.0) / 100.0; // Làm tròn 2 chữ số
+        gpa = Math.round(gpa * 100.0) / 100.0; 
 
-        // 3. Xử lý dữ liệu vẽ Radar Chart (Thang điểm 100 cho đẹp)
         List<Map<String, Object>> radarData = new ArrayList<>();
         if (categoryStats.isEmpty()) {
              radarData.add(Map.of("subject", "Chưa có dữ liệu", "A", 0, "fullMark", 100));
         } else {
             for (Map.Entry<String, double[]> entry : categoryStats.entrySet()) {
                 double avgScore10 = entry.getValue()[1] > 0 ? (entry.getValue()[0] / entry.getValue()[1]) : 0;
-                radarData.add(Map.of(
-                    "subject", entry.getKey(), 
-                    "A", Math.round(avgScore10 * 10), // Đổi sang thang 100 (VD: 8.5 -> 85)
-                    "fullMark", 100
-                ));
+                radarData.add(Map.of("subject", entry.getKey(), "A", Math.round(avgScore10 * 10), "fullMark", 100));
             }
         }
 
