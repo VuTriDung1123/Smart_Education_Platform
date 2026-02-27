@@ -15,12 +15,12 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.sep.core_service.entity.AttendanceRecord;
 import com.sep.core_service.entity.AttendanceSession;
-import com.sep.core_service.entity.CourseClass;
+import com.sep.core_service.entity.Classroom;
 import com.sep.core_service.entity.Student;
 import com.sep.core_service.entity.User;
 import com.sep.core_service.repository.AttendanceRecordRepository;
 import com.sep.core_service.repository.AttendanceSessionRepository;
-import com.sep.core_service.repository.CourseClassRepository;
+import com.sep.core_service.repository.ClassroomRepository;
 import com.sep.core_service.repository.StudentRepository;
 import com.sep.core_service.repository.UserRepository;
 
@@ -29,18 +29,15 @@ import com.sep.core_service.repository.UserRepository;
 public class AttendanceController {
 
     @Autowired private UserRepository userRepository;
-    @Autowired private CourseClassRepository classRepository;
+    @Autowired private ClassroomRepository classRepository; // Đã sửa thành ClassroomRepository
     @Autowired private AttendanceSessionRepository sessionRepository;
     @Autowired private AttendanceRecordRepository recordRepository;
     @Autowired private StudentRepository studentRepository;
 
-    // 🔥 API 1: ĐĂNG KÝ KHUÔN MẶT VÀO HỆ THỐNG (Giả lập lưu Vector JSON)
     @PostMapping("/register-face/{userId}")
     public Map<String, String> registerFace(@PathVariable UUID userId, @RequestBody String faceVectorJson) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy User!"));
-        
-        // Lưu chuỗi JSON chứa các điểm ảnh khuôn mặt (Face Vector) vào DB
         user.setFaceVector(faceVectorJson);
         userRepository.save(user);
 
@@ -49,21 +46,19 @@ public class AttendanceController {
         return response;
     }
 
-    // 🔥 API 2: GIẢNG VIÊN TẠO BUỔI ĐIỂM DANH CHO LỚP
     @PostMapping("/sessions/create")
     public AttendanceSession createSession(@RequestParam UUID classId, @RequestParam boolean requireFace) {
-        CourseClass courseClass = classRepository.findById(classId)
+        Classroom classroom = classRepository.findById(classId) // Đã sửa
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy Lớp học!"));
 
         AttendanceSession session = new AttendanceSession();
-        session.setCourseClass(courseClass);
-        session.setSessionDate(LocalDate.now()); // Điểm danh ngày hôm nay
-        session.setIsFaceRequired(requireFace); // Có bắt buộc dùng AI không?
+        session.setCourseClass(classroom); // Đã sửa
+        session.setSessionDate(LocalDate.now()); 
+        session.setIsFaceRequired(requireFace); 
 
         return sessionRepository.save(session);
     }
 
-    // 🔥 API 3: CAMERA AI BÁO CÁO ĐIỂM DANH SINH VIÊN
     @PostMapping("/check-in")
     public AttendanceRecord checkIn(
             @RequestParam UUID sessionId, 
@@ -75,11 +70,10 @@ public class AttendanceController {
         Student student = studentRepository.findById(studentId)
                 .orElseThrow(() -> new RuntimeException("Sinh viên không tồn tại!"));
 
-        // Giả lập Logic: Kiểm tra xem Sinh viên đã đăng ký khuôn mặt chưa?
         boolean isVerified = false;
         if (session.getIsFaceRequired()) {
             if (student.getUser().getFaceVector() != null) {
-                isVerified = true; // AI báo khớp khuôn mặt
+                isVerified = true; 
             } else {
                 throw new RuntimeException("Sinh viên này chưa đăng ký dữ liệu khuôn mặt trong hệ thống!");
             }
@@ -89,7 +83,7 @@ public class AttendanceController {
         record.setSession(session);
         record.setStudent(student);
         record.setFaceVerified(isVerified);
-        record.setStatus(isVerified ? "PRESENT" : "ABSENT"); // Khớp mặt thì HIỆN DIỆN, không thì VẮNG
+        record.setStatus(isVerified ? "PRESENT" : "ABSENT");
 
         return recordRepository.save(record);
     }

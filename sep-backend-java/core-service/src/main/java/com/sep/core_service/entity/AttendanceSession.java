@@ -24,9 +24,10 @@ public class AttendanceSession {
     @GenericGenerator(name = "UUID", strategy = "org.hibernate.id.UUIDGenerator")
     private UUID id;
 
+    // ĐÃ ĐỔI KIỂU DỮ LIỆU THÀNH Classroom
     @ManyToOne
     @JoinColumn(name = "class_id", nullable = false)
-    private CourseClass courseClass;
+    private Classroom courseClass;
 
     @Column(nullable = false)
     private LocalDate sessionDate;
